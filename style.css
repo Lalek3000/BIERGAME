@@ -1,0 +1,23 @@
+/* Verhindert Scrollen und standardisiert das Layout */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #111111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Optimiert das Canvas für Mobilgeräte (9:16 Hochformat) */
+canvas {
+    background-color: #222222;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    max-width: 100vw;
+    max-height: 100vh;
+    aspect-ratio: 9 / 16;
+    image-rendering: pixelated; /* Erhält den scharfen Pixel-Look */
+    display: block;
+}
