@@ -2,577 +2,446 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>MÄDCHENNAME MADEMANN - DIE NACHT DER 1000 BIERE</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            margin: 0;
-            padding: 0;
-        }
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: #111;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 450px; /* Perfekte Handy-Breite */
-            height: 100%;
-            max-height: 850px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            background: #000;
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            image-rendering: pixelated;
-        }
+        body { margin: 0; padding: 0; background: #111; color: #fff; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; }
+        #gameContainer { position: relative; width: 100%; max-width: 450px; height: 100vh; max-height: 850px; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; background: #222; display: block; }
     </style>
-
-    <!-- Firebase v9 Kompatibilitäts-SDKs vom CDN laden -->
+    <!-- Firebase SDKs -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 </head>
 <body>
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+</div>
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="450" height="800"></canvas>
-    </div>
-
-    <!-- Das eigentliche Spielskript laden -->
-    <script src="game.js"></script>
-</body>
-</html>
-// ==========================================
-// 1. FIREBASE SETUP & INITIALISIERUNG
-// ==========================================
+<script>
+// --- FIREBASE KONFIGURATION ---
 const firebaseConfig = {
-  apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
-  authDomain: "://firebaseapp.com",
-  databaseURL: "https://firebasedatabase.app",
-  projectId: "biere-handygame",
-  storageBucket: "biere-handygame.firebasestorage.app",
-  messagingSenderId: "706208794774",
-  appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
+    apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
+    authDomain: "://firebaseapp.com",
+    databaseURL: "https://firebasedatabase.app",
+    projectId: "biere-handygame",
+    storageBucket: "biere-handygame.firebasestorage.app",
+    messagingSenderId: "706208794774",
+    appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
 };
-
-// Firebase initialisieren
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Canvas & Kontext holen
+// --- AUDIO INITIALISIERUNG ---
+const audio = {
+    bgMenu: new Audio("backgroundmenu.mp3"),
+    bgBierloch: new Audio("backgroundbierloch.mp3"),
+    bgGito: new Audio("backgroundgito.mp3"),
+    ruelps: new Audio("ruelps.mp3"),
+    klirr: new Audio("klirr.mp3"),
+    urin: new Audio("urin.mp3")
+};
+// Loop-Einstellungen für Hintergrundmusik
+[audio.bgMenu, audio.bgBierloch, audio.bgGito, audio.urin].forEach(a => a.loop = true);
+
+// --- BILDER INITIALISIERUNG ---
+const imgJustus = new Image(); imgJustus.src = "justus.png";
+const imgJustusSauft = new Image(); imgJustusSauft.src = "justussauft.png";
+
+// Fehler-Fallback: Falls Bilder fehlen, stürzt das Spiel nicht ab
+let assetsLoaded = true;
+[imgJustus, imgJustusSauft].forEach(img => {
+    img.onerror = () => { console.log("Bild konnte nicht geladen werden, verwende Pixel-Fallback."); };
+});
+</script>
+</body>
+</html>
+// --- TEIL 2: VARIABLEN & ENGINE-ZUSTAND ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// ==========================================
-// 2. AUDIO & GRAFIK PLATZHALTER MANAGEMENT
-// ==========================================
-const audioAssets = {};
-const imageAssets = {};
-
-function initAudio(key, src) {
-    audioAssets[key] = new Audio(src);
-    audioAssets[key].loop = key.startsWith("bg_");
-    // Fallback falls Datei (noch) fehlt
-    audioAssets[key].addEventListener('error', () => {
-        console.warn(`Audio '${src}' fehlt. Simulation aktiv.`);
-        audioAssets[key] = { play: () => {}, pause: () => {}, cloneNode: () => ({ play: () => {} }) };
-    });
+function resizeCanvas() {
+    canvas.width = 450;
+    canvas.height = 800;
 }
+resizeCanvas();
 
-function initImage(key, src, colorFallback) {
-    const img = new Image();
-    img.src = src;
-    imageAssets[key] = { loaded: false, img: img, fallbackColor: colorFallback };
-    img.onload = () => { imageAssets[key].loaded = true; };
-    img.onerror = () => { console.warn(`Bild '${src}' fehlt. Pixel-Ersatz wird gezeichnet.`); };
-}
-
-// Assets deklarieren
-initAudio("bg_menu", "backgroundmenu.mp3");
-initAudio("bg_bierloch", "backgroundbierloch.mp3");
-initAudio("bg_gito", "backgroundgito.mp3");
-initAudio("rülps", "ruelps.mp3");       // Für erfolgreiches Trinken
-initAudio("klirr", "klirr.mp3");       // Für verschüttete Gläser
-initAudio("pissen", "pissen.mp3");     // Für Gitarren-Urinal
-
-initImage("justus", "justus.png", "#00FF00");
-initImage("justus_sauft", "justussauft.png", "#FF00FF");
-
-// Musik-Helfer
-let currentTrack = null;
-function playMusic(trackKey) {
-    if (currentTrack === trackKey) return;
-    if (audioAssets[currentTrack] && typeof audioAssets[currentTrack].pause === 'function') {
-        audioAssets[currentTrack].pause();
-    }
-    currentTrack = trackKey;
-    try {
-        if (audioAssets[trackKey]) audioAssets[trackKey].play();
-    } catch(e) { console.log("Audio-Play blockiert. Warte auf User-Interaktion."); }
-}
-
-function playSound(key) {
-    try {
-        if(audioAssets[key] && audioAssets[key].cloneNode) {
-            let soundClone = audioAssets[key].cloneNode(true);
-            soundClone.play();
-        }
-    } catch(e){}
-}
-// ==========================================
-// 3. SPIEL-VARIABLEN & ENGINE-ZUSTÄNDE
-// ==========================================
 let gameState = "MENU"; // MENU, RULES, PLAYING, GAMEOVER, HIGHSCORE_INPUT
 let highscores = [];
-let playerNameInput = "";
-
-// Spieler-Objekt
-const player = {
-    x: 200, y: 500, w: 32, h: 48,
-    vx: 0, vy: 0,
-    speed: 4,
-    facing: "right",
-    isDrinking: false,
-    drinkTimer: 0,
-    durst: 100,
-    blase: 0,
-    drunkInertia: 0,     // Steigt mit Bieren (Trägheit)
-    drunkWobble: 0       // Steigt mit Bieren (Schwanken)
-};
-
-// Gameplay Statistiken
-let stats = {
-    biereGesoffen: 0,
-    verschuettet: 0,
-    levelProgress: 0,
-    colorThemeIndex: 0,
-    gitoRoundActive: false,
-    gitoTimer: 0,
-    gitoCountdown: 0,
-    powerModeTimer: 0
-};
-
-// Listen für Entities
-let items = [];         // Biere, GiTos, Döner
-let snacks = [];        // Bar-Snacks
-let puddles = [];       // Verschüttete Bierpfützen
-let particles = [];     // Konfetti-Effekte
-
-// Timer für Spawns
-let timers = {
-    nextBier: 0,
-    nextGitoRound: 120, // 2-4 Minuten (in Sek. ausgedrückt, Initialwert)
-    nextDoener: 120,
-    nextSnack: 5
-};
-
-// Virtueller Touch-Joystick & Buttons
-const joystick = { cx: 100, cy: 700, r: 50, x: 100, y: 700, active: false, id: null };
-const drinkButton = { x: 300, y: 650, r: 40 };
-
-// Tastatursteuerung
-const keys = {};
-window.addEventListener("keydown", e => { 
-    keys[e.code] = true; 
-    if(gameState === "HIGHSCORE_INPUT") handleTextInput(e);
-});
-window.addEventListener("keyup", e => { keys[e.code] = false; });
-
-// Touch/Maus Events
-canvas.addEventListener("touchstart", handleTouchStart, {passive:false});
-canvas.addEventListener("touchmove", handleTouchMove, {passive:false});
-canvas.addEventListener("touchend", handleTouchEnd, {passive:false});
-canvas.addEventListener("mousedown", handleMouseDown);
-
-// Farbthemen für je 100 getrunkene Biere
-const colorThemes = [
-    { floor: "#2c3e50", wall: "#34495e", bar: "#d35400", toilet: "#7f8c8d" },
-    { floor: "#16a085", wall: "#1abc9c", bar: "#c0392b", toilet: "#bdc3c7" },
-    { floor: "#2980b9", wall: "#3498db", bar: "#f39c12", toilet: "#95a5a6" },
-    { floor: "#8e44ad", wall: "#9b59b6", bar: "#27ae60", toilet: "#7f8c8d" },
-    { floor: "#2c3e50", wall: "#e74c3c", bar: "#e67e22", toilet: "#ecf0f1" }
+let menuButtons = [
+    { text: "START", x: 125, y: 350, w: 200, h: 50 },
+    { text: "SPIELREGELN", x: 125, y: 430, w: 200, h: 50 }
 ];
 
-// Highscores laden aus Firebase Firestore
-function loadHighscores() {
-    db.collection("highscores").orderBy("score", "desc").limit(10).get()
-    .then(snapshot => {
-        highscores = [];
-        snapshot.forEach(doc => highscores.push(doc.data()));
-    }).catch(err => console.error("Fehler beim Highscore-Laden: ", err));
+// Spielvariablen
+let player, beers, giTos, doeners, snacks, pfuetzen;
+let beerSpawnTimer, nextGitoRoundTimer, gitoRoundActive, gitoRoundTimer, nextDoenerTimer;
+let colorSchemeIndex = 0;
+let milestoneEffectActive = false;
+let milestoneTimer = 0;
+
+// Farbpaletten für Levelwechsel (Alle 100 Biere)
+const colorSchemes = [
+    { floor: "#3a3a3a", wall: "#2a2a2a", bar: "#5c3a21" },
+    { floor: "#2b3a42", wall: "#1a252c", bar: "#4f3925" },
+    { floor: "#3f2b42", wall: "#291a2c", bar: "#3d254f" },
+    { floor: "#2b4231", wall: "#1a2c20", bar: "#254f32" }
+];
+
+// Touch Joystick Definition
+let joystick = { x: 120, y: 700, radius: 50, knobX: 120, knobY: 700, active: false, id: null };
+let drinkButton = { x: 320, y: 700, radius: 40, active: false };
+
+// Tastatur-Eingaben
+let keys = {};
+window.addEventListener("keydown", e => { 
+    keys[e.key] = true; 
+    if (e.key === " " && gameState === "PLAYING") activateTrinkmodus();
+});
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+// Controller-Unterstützung (Gamepad API)
+window.addEventListener("gamepadconnected", () => { console.log("Gamepad verbunden!"); });
+
+function checkGamepad() {
+    let gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    if (!gamepads || !gamepads[0]) return null;
+    let gp = gamepads[0];
+    let axes = { x: gp.axes[0], y: gp.axes[1] };
+    let buttonPressed = gp.buttons[0].pressed; // A-Knopf oder X-Knopf
+    return { axes, buttonPressed };
 }
 
-function saveHighscore(name, score) {
-    db.collection("highscores").add({ name: name, score: score, date: new Date().toISOString() })
-    .then(() => { loadHighscores(); gameState = "MENU"; })
-    .catch(err => console.error("Fehler beim Speichern: ", err));
+function initGame() {
+    player = {
+        x: 200, y: 400, width: 40, height: 60, vx: 0, vy: 0, speed: 5,
+        durst: 100, blase: 0, maxBlase: 15, biereGesoffen: 0, verschuettet: 0,
+        isDrinking: false, drinkTimer: 0, doenerPowerActive: false, doenerTimer: 0, facing: "right"
+    };
+    beers = []; giTos = []; doeners = []; snacks = []; pfuetzen = [];
+    beerSpawnTimer = 0;
+    gitoRoundActive = false;
+    gitoRoundTimer = 0;
+    nextGitoRoundTimer = (120 + Math.random() * 120) * 60; // 2-4 Min
+    nextDoenerTimer = (90 + Math.random() * 60) * 60; // ca. 2 Min
+    colorSchemeIndex = 0;
+    
+    audio.bgMenu.pause();
+    audio.bgBierloch.currentTime = 0;
+    audio.bgBierloch.play().catch(e => console.log(e));
 }
 
-// Helfer: Zufallszahl im Bereich
-function randRange(min, max) { return Math.random() * (max - min) + min; }
-
-// Initialer Aufruf
-loadHighscores();
-// --- TEIL 3A: SPAWNING LOGIK ---
-
-function spawnBeer() {
-    // Startet in der Mitte der Band-Bühne
-    let startX = canvas.width / 2;
-    let startY = 80;
-    
-    // Zufällige physikalische Wurfkurve (links/rechts und nach unten)
-    let angle = Math.random() * Math.PI + Math.PI * 0.1; // Winkel nach unten gestreut
-    let speed = 2 + Math.random() * 4;
-    
-    beers.push({
-        x: startX,
-        y: startY,
-        vx: Math.cos(angle) * speed,
-        vy: -Math.sin(angle) * speed * 0.5, // Leichter Bogen nach oben vor dem Fallen
-        width: 24,
-        height: 32,
-        gravity: 0.15
-    });
+function activateTrinkmodus() {
+    if (!player.isDrinking && (player.durst >= 15 || player.doenerPowerActive) && player.blase < player.maxBlase) {
+        player.isDrinking = true;
+        player.drinkTimer = 60; // 1 Sekunde bei 60 FPS
+        if (!player.doenerPowerActive) player.durst -= 15;
+    }
 }
-
-function startGiToRound() {
-    gitoRoundActive = true;
-    gitoRoundTimer = 480; // 8 Sekunden bei 60 FPS
-    
-    // Wechsel zur Gito-Hintergrundmusik
-    audio.bgBierloch.pause();
-    audio.bgGito.currentTime = 0;
-    audio.bgGito.play().catch(e => console.log("Audio-Inhibition:", e));
-}
-
-function spawnGiTo() {
-    // Startet wild im Barbereich auf der rechten Seite
-    let startX = canvas.width - 60;
-    let startY = 150 + Math.random() * (canvas.height - 350);
-    
-    // Fliegt quer von rechts nach links rüber
-    giTos.push({
-        x: startX,
-        y: startY,
-        vx: -(3 + Math.random() * 5),
-        vy: (Math.random() - 0.5) * 4,
-        width: 24,
-        height: 28
-    });
-}
-
-function spawnDoener() {
-    let startX = canvas.width / 2;
-    let startY = 80;
-    let angle = Math.random() * Math.PI;
-    let speed = 3;
-    
-    doeners.push({
-        x: startX,
-        y: startY,
-        vx: Math.cos(angle) * speed,
-        vy: 1,
-        width: 30,
-        height: 20,
-        gravity: 0.05
-    });
-}
-
-function spawnSnack() {
-    if (snacks.length >= 3) return; // Maximal 3 gleichzeitig an der Bar
-    
-    let barXStart = canvas.width - 120;
-    let barYStart = 150;
-    
-    snacks.push({
-        x: barXStart + Math.random() * 80,
-        y: barYStart + Math.random() * (canvas.height - 350),
-        width: 20,
-        height: 20
-    });
-}
-// --- TEIL 3B: ZUSTANDS-UPDATES (UPDATE GAME) ---
-
+// --- TEIL 3: LOGIK, PHYSIK & KOLLISIONEN ---
 function updateGame() {
-    // 1. Timer & Spawning Raten herunterzählen
+    // 1. Spawning Raten (3-8 Biere pro Sekunde)
     beerSpawnTimer--;
     if (beerSpawnTimer <= 0) {
-        // Zwischen 3 und 8 Biere pro Sekunde (60 FPS -> alle 7 bis 20 Frames ein Bier)
-        spawnBeer();
+        beers.push({
+            x: canvas.width / 2, y: 80,
+            vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 3,
+            w: 24, h: 32, gravity: 0.15
+        });
         beerSpawnTimer = 7 + Math.floor(Math.random() * 13);
     }
-    
-    // GiTo-Runden Management
+
+    // GiTo-Runden Timer & Wechsel der Audio-Spuren
     if (!gitoRoundActive) {
         nextGitoRoundTimer--;
         if (nextGitoRoundTimer <= 0) {
-            startGiToRound();
+            gitoRoundActive = true; gitoRoundTimer = 480; // 8 Sek
+            audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; audio.bgGito.play().catch(e=>e);
         }
     } else {
         gitoRoundTimer--;
-        // Während der GiTo-Runde fliegen wild GiTos von der Bar
-        if (gitoRoundTimer % 10 === 0) {
-            spawnGiTo();
+        if (gitoRoundTimer % 10 === 0) { // Wildes Spawning von der Bar
+            giTos.push({ x: canvas.width - 40, y: 150 + Math.random()*300, vx: -(4 + Math.random()*4), vy: (Math.random()-0.5)*3, w: 24, h: 28 });
         }
         if (gitoRoundTimer <= 0) {
-            gitoRoundActive = false;
-            // Zurück zur normalen Musik
-            audio.bgGito.pause();
-            audio.bgBierloch.currentTime = 0;
-            audio.bgBierloch.play().catch(e => console.log(e));
-            nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60; // Nächste in 2-4 Min
+            gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.random()*120)*60;
+            audio.bgGito.pause(); audio.bgBierloch.play().catch(e=>e);
         }
     }
-    
-    // Döner Spawning
+
+    // Seltene Döner-Spawns (~ alle 2 Minuten)
     nextDoenerTimer--;
     if (nextDoenerTimer <= 0) {
-        spawnDoener();
-        nextDoenerTimer = (90 + Math.floor(Math.random() * 60)) * 60; // ca. alle 2 Minuten
-    }
-    
-    // Snack Spawning an der Bar
-    if (Math.random() < 0.005) {
-        spawnSnack();
-    }
-    
-    // Döner Powerup Timer
-    if (player.doenerPowerActive) {
-        player.doenerTimer--;
-        if (player.doenerTimer <= 0) {
-            player.doenerPowerActive = false;
-        }
-    }
-    
-    // Trinkmodus Timer herabsetzen
-    if (player.isDrinking) {
-        player.drinkTimer--;
-        if (player.drinkTimer <= 0) {
-            player.isDrinking = false;
-        }
-    }
-    
-    // Durst lädt sich kontinuierlich auf (wenn kein Döner-Modus läuft)
-    if (!player.doenerPowerActive && player.durst < 100) {
-        player.durst += 0.03;
-    }
-    
-    // 2. Bewegungseingaben verarbeiten (Keyboard / Touch-Joystick)
-    let moveX = 0;
-    let moveY = 0;
-    
-    if (keys['w'] || keys['W']) moveY = -1;
-    if (keys['s'] || keys['S']) moveY = 1;
-    if (keys['a'] || keys['A']) moveX = -1;
-    if (keys['d'] || keys['D']) moveX = 1;
-    
-    if (joystick.active) {
-        moveX = joystick.vx;
-        moveY = joystick.vy;
-    }
-    
-    // Normalisieren bei diagonaler Tastaturbewegung
-    if (moveX !== 0 && moveY !== 0) {
-        let length = Math.sqrt(moveX * moveX + moveY * moveY);
-        moveX /= length;
-        moveY /= length;
-    }
-    
-    // 3. BETRUNKENHEITS-PHYSIK (Trägheit, Übersteuerung & Schwanken)
-    let alcoholFactor = Math.min(player.biereGesoffen / 200, 1.0); // Skaliert bis 200 Biere
-    let currentSpeed = player.speed;
-    
-    // Blase voll -> Deutlich langsamer und schwerer steuerbar
-    if (player.blase >= player.maxBlase) {
-        currentSpeed *= 0.4;
-        alcoholFactor = Math.max(alcoholFactor, 0.8);
-    }
-    
-    // Dynamisches, betrunkenes Schwanken (Sinus-Wellen basierend auf Promille)
-    let swayX = 0;
-    let swayY = 0;
-    if (alcoholFactor > 0) {
-        let time = Date.now() * 0.003;
-        swayX = Math.sin(time) * alcoholFactor * 2.5;
-        swayY = Math.cos(time * 1.5) * alcoholFactor * 1.5;
-    }
-    
-    // Zielgeschwindigkeiten inklusive Trägheits-Übersteuerung berechnen
-    let targetVx = moveX * currentSpeed + swayX;
-    let targetVy = moveY * currentSpeed + swayY;
-    
-    // Trägheitsfaktor: Je betrunkener, desto langsamer reagiert die Spielfigur auf Richtungswechsel
-    let easing = 0.15 - (alcoholFactor * 0.12); 
-    player.vx += (targetVx - player.vx) * easing;
-    player.vy += (targetVy - player.vy) * easing;
-    
-    // Position updaten
-    player.x += player.vx;
-    player.y += player.vy;
-    
-    // Grafische Blickrichtung anpassen
-    if (moveX > 0.1) player.facing = 'right';
-    if (moveX < -0.1) player.facing = 'left';
-    
-    // Spielfeldbegrenzung (Spielfeld fängt unter der Bandbühne bei Y=120 an)
-    if (player.x < 0) player.x = 0;
-    if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-    if (player.y < 120) player.y = 120;
-    if (player.y > canvas.height - 180 - player.height) player.y = canvas.height - 180 - player.height; // Platz für Joystick lassen
-}
-// --- TEIL 3C: KOLLISIONEN & PHYSIKALISCHE OBJEKTE UPDATE ---
-
-function checkCollisions() {
-    // 1. Klo-Bereich Logik (Ed Sheeran auf der linken Seite)
-    // Klo-Zone: X < 150, Y zwischen 120 und canvas.height-180
-    if (player.x < 120 && player.blase > 0) {
-        if (!audio.urin.playing) {
-            audio.urin.currentTime = 0;
-            audio.urin.play().catch(e => console.log(e));
-            audio.urin.playing = true;
-        }
-        // Blase entleert sich zügig im Takt
-        player.blase -= 0.4;
-        if (player.blase < 0) player.blase = 0;
-    } else {
-        if (audio.urin.playing) {
-            audio.urin.pause();
-            audio.urin.playing = false;
-        }
+        doeners.push({ x: canvas.width/2, y: 80, vx: (Math.random()-0.5)*4, vy: 1, w: 30, h: 20, gravity: 0.06 });
+        nextDoenerTimer = (90 + Math.random()*60)*60;
     }
 
-    // Hilfsfunktion für Bounding-Box Kollisionen
-    function rectIntersect(r1, r2) {
-        return r1.x < r2.x + r2.width &&
-               r1.x + r1.width > r2.x &&
-               r1.y < r2.y + r2.height &&
-               r1.y + r1.height > r2.y;
+    // Snack-Generierung an der Bar
+    if (Math.random() < 0.005 && snacks.length < 3) {
+        snacks.push({ x: canvas.width - 100 + Math.random()*60, y: 180 + Math.random()*300, w: 20, h: 20 });
     }
 
-    let pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+    // Reduzierung Timers
+    if (player.isDrinking) { player.drinkTimer--; if (player.drinkTimer <= 0) player.isDrinking = false; }
+    if (player.doenerPowerActive) { player.doenerTimer--; if (player.doenerTimer <= 0) player.doenerPowerActive = false; }
+    if (!player.doenerPowerActive && player.durst < 100) player.durst += 0.04;
 
-    // 2. Biere updaten & prüfen
+    // 2. Eingaben verarbeiten (Keyboard, Touch & Gamepad fusionieren)
+    let moveX = 0, moveY = 0;
+    if (keys['w'] || keys['W']) moveY = -1; if (keys['s'] || keys['S']) moveY = 1;
+    if (keys['a'] || keys['A']) moveX = -1; if (keys['d'] || keys['D']) moveX = 1;
+    
+    if (joystick.active) { moveX = joystick.vx; moveY = joystick.vy; }
+    
+    let gp = checkGamepad();
+    if (gp) {
+        if (Math.abs(gp.axes.x) > 0.2) moveX = gp.axes.x;
+        if (Math.abs(gp.axes.y) > 0.2) moveY = gp.axes.y;
+        if (gp.buttonPressed) activateTrinkmodus();
+    }
+
+    // 3. PROMILLE-PHYSIK (Schwanken, Trägheit & Blasen-Überladung)
+    let alc = Math.min(player.biereGesoffen / 200, 1.0);
+    let speedMod = player.blase >= player.maxBlase ? 0.35 : 1.0;
+    
+    let swayX = alc > 0 ? Math.sin(Date.now() * 0.004) * alc * 3 : 0;
+    let swayY = alc > 0 ? Math.cos(Date.now() * 0.002) * alc * 1.5 : 0;
+
+    let targetVx = moveX * player.speed * speedMod + swayX;
+    let targetVy = moveY * player.speed * speedMod + swayY;
+    let easing = 0.16 - (alc * 0.13); // Verringert Reaktionszeit drastisch
+
+    player.vx += (targetVx - player.vx) * easing; player.vy += (targetVy - player.vy) * easing;
+    player.x += player.vx; player.y += player.vy;
+
+    if (moveX > 0.1) player.facing = "right"; else if (moveX < -0.1) player.facing = "left";
+
+    // Grenzen setzen
+    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+    player.y = Math.max(120, Math.min(canvas.height - 190 - player.height, player.y));
+
+    // 4. KLO-REINIGUNG (Ed Sheeran Zone auf linker Seite)
+    if (player.x < 110 && player.blase > 0) {
+        player.blase -= 0.08; if (player.blase < 0) player.blase = 0;
+        if (audio.urin.paused) audio.urin.play().catch(e=>e);
+    } else { audio.urin.pause(); }
+
+    // Kollisionsprüfung (AABB-Schnittmenge)
+    let pR = { x: player.x, y: player.y, w: player.width, h: player.height };
+    const checkHit = (o) => (pR.x < o.x + o.w && pR.x + pR.w > o.x && pR.y < o.y + o.h && pR.y + pR.h > o.y);
+
+    // Biere bewegen & prüfen
     for (let i = beers.length - 1; i >= 0; i--) {
-        let b = beers[i];
-        b.vy += b.gravity; // Schwerkraft auf Wurfkurve anwenden
-        b.x += b.vx;
-        b.y += b.vy;
-        
-        if (rectIntersect(pRect, b)) {
-            // Kollision detektiert!
+        let b = beers[i]; b.vy += b.gravity; b.x += b.vx; b.y += b.vy;
+        if (checkHit(b)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
-                // Erfolgreich getrunken!
-                player.biereGesoffen += 1;
-                player.blase += 1; // 15 Getränke bis voll
-                audio.ruelps.currentTime = 0;
-                audio.ruelps.play().catch(e => console.log(e));
-                triggerMilestoneEffects();
+                player.biereGesoffen++; player.blase += 1; audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e=>e);
+                if (player.biereGesoffen % 100 === 0) { colorSchemeIndex = (colorSchemeIndex+1)%colorSchemes.length; milestoneEffectActive = true; milestoneTimer = 90; }
             } else {
-                // Verschüttet!
-                player.verschuettet += 1;
-                audio.klirr.currentTime = 0;
-                audio.klirr.play().catch(e => console.log(e));
-                // Hinterlässt eine Bierpfütze am Boden
-                pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height - 190), timer: 300 }); 
-                if (player.verschuettet >= 100) {
-                    gameOver();
-                }
+                player.verschuettet++; audio.klirr.currentTime = 0; audio.klirr.play().catch(e=>e);
+                pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height-195), t: 180 });
+                if (player.verschuettet >= 100) gameState = "GAMEOVER";
             }
             beers.splice(i, 1);
-            continue;
-        }
-        // Aus dem Bildschirm gefallen
-        if (b.y > canvas.height - 180 || b.x < 0 || b.x > canvas.width) {
-            beers.splice(i, 1);
-        }
+        } else if (b.y > canvas.height - 180) beers.splice(i, 1);
     }
 
-    // 3. GiTos updaten & prüfen
+    // GiTos bewegen & prüfen
     for (let i = giTos.length - 1; i >= 0; i--) {
-        let g = giTos[i];
-        g.x += g.vx;
-        g.y += g.vy;
-        
-        if (rectIntersect(pRect, g)) {
+        let g = giTos[i]; g.x += g.vx; g.y += g.vy;
+        if (checkHit(g)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
-                player.biereGesoffen += 3; // GiTo gibt 3 Punkte!
-                player.blase += 1;
-                audio.ruelps.currentTime = 0;
-                audio.ruelps.play().catch(e => console.log(e));
-                triggerMilestoneEffects();
+                player.biereGesoffen += 3; player.blase += 1; audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e=>e);
             } else {
-                player.verschuettet += 1;
-                audio.klirr.currentTime = 0;
-                audio.klirr.play().catch(e => console.log(e));
-                pfuetzen.push({ x: g.x, y: g.y, timer: 300 });
-                if (player.verschuettet >= 100) {
-                    gameOver();
-                }
+                player.verschuettet++; audio.klirr.currentTime = 0; audio.klirr.play().catch(e=>e);
+                pfuetzen.push({ x: g.x, y: g.y, t: 180 });
+                if (player.verschuettet >= 100) gameState = "GAMEOVER";
             }
             giTos.splice(i, 1);
-            continue;
-        }
-        if (g.x < 0 || g.y < 120 || g.y > canvas.height - 180) {
-            giTos.splice(i, 1);
-        }
+        } else if (g.x < 0) giTos.splice(i, 1);
     }
 
-    // 4. Döner updaten & prüfen
+    // Döner & Snacks bewegen & prüfen
     for (let i = doeners.length - 1; i >= 0; i--) {
-        let d = doeners[i];
-        d.vy += d.gravity;
-        d.x += d.vx;
-        d.y += d.vy;
-        
-        if (rectIntersect(pRect, d)) {
-            if (player.isDrinking) {
-                // Powerup Aktivierung!
-                player.doenerPowerActive = true;
-                player.doenerTimer = 600; // 10 Sekunden unendlich Durst bei 60 FPS
-                player.durst = 100;
-                audio.ruelps.currentTime = 0;
-                audio.ruelps.play().catch(e => console.log(e));
-            }
+        let d = doeners[i]; d.vy += d.gravity; d.x += d.vx; d.y += d.vy;
+        if (checkHit(d)) {
+            if (player.isDrinking) { player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; }
             doeners.splice(i, 1);
-            continue;
-        }
-        if (d.y > canvas.height - 180) {
-            doeners.splice(i, 1);
-        }
+        } else if (d.y > canvas.height - 180) doeners.splice(i, 1);
     }
-
-    // 5. Snacks an der Bar einsammeln (Erhöht Durst, muss nicht getrunken werden)
     for (let i = snacks.length - 1; i >= 0; i--) {
-        if (rectIntersect(pRect, snacks[i])) {
-            player.durst = Math.min(player.durst + 25, 100); // Füllt Durst-Ressource auf
-            snacks.splice(i, 1);
+        if (checkHit(snacks[i])) { player.durst = Math.min(player.durst + 30, 100); snacks.splice(i, 1); }
+    }
+}
+// --- TEIL 4: RENDER-PIPELINE & INPUTS ---
+function drawPixelUI() {
+    let scheme = colorSchemes[colorSchemeIndex];
+    // Background Spielfeld
+    ctx.fillStyle = scheme.floor; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Klo-Bereich links (Schachbrettmuster)
+    ctx.fillStyle = "#8a8a8a"; ctx.fillRect(0, 120, 120, canvas.height-300);
+    for(let x=0; x<120; x+=20) {
+        for(let y=120; y<canvas.height-180; y+=20) {
+            if((x+y)/20 % 2 === 0) { ctx.fillStyle = "#dcdcdc"; ctx.fillRect(x, y, 20, 20); }
         }
     }
+    // Ed Sheeran im Klo-Bereich zeichnen
+    ctx.fillStyle = "#e07a5f"; ctx.fillRect(40, 200, 30, 50); // Haare/Körper
+    ctx.fillStyle = "#8ecae6"; ctx.fillRect(45, 220, 20, 15); // Kl. Gitarre
+    ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.fillText("Ed S.", 40, 190);
 
-    // 6. Pfützen-Timer verringern
-    for (let i = pfuetzen.length - 1; i >= 0; i--) {
-        pfuetzen[i].timer--;
-        if (pfuetzen[i].timer <= 0) {
-            pfuetzen[i].splice(i, 1);
-        }
+    // Bar-Bereich rechts
+    ctx.fillStyle = scheme.bar; ctx.fillRect(canvas.width - 100, 120, 100, canvas.height-300);
+    ctx.fillStyle = "#222"; ctx.fillRect(canvas.width - 100, 120, 10, canvas.height-300); // Tresenkante
+
+    // Bühne oben (Punkband)
+    ctx.fillStyle = "#111"; ctx.fillRect(0, 0, canvas.width, 120);
+    ctx.fillStyle = "#ffb703"; ctx.font = "14px 'Courier New'"; ctx.fillText("PUNKBAND LIVE", 170, 30);
+    
+    // Animierte Bandmitglieder (Sinus-Wellen-Hüpfen)
+    let bounce = Math.sin(Date.now() * 0.01) * 5;
+    ctx.fillStyle = "#fff"; 
+    ctx.fillRect(120, 50 + bounce, 20, 30); // Keyboarder links
+    ctx.fillRect(215, 45 + bounce * 0.8, 25, 35); // Drummer Mitte
+    ctx.fillRect(300, 50 + bounce, 20, 30); // Bassist rechts
+
+    // Pfützen zeichnen
+    ctx.fillStyle = "rgba(224, 169, 109, 0.7)";
+    pfuetzen.forEach(p => { ctx.beginPath(); ctx.ellipse(p.x, p.y, 15, 6, 0, 0, Math.PI*2); ctx.fill(); });
+
+    // Snacks (Brezeln/Nüsse) an der Bar zeichnen
+    ctx.fillStyle = "#b5651d"; snacks.forEach(s => ctx.fillRect(s.x, s.y, s.w, s.h));
+
+    // Objekte (Biere, GiTos, Döner) zeichnen
+    beers.forEach(b => { ctx.fillStyle = "#ffb703"; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = "#fff"; ctx.fillRect(b.x, b.y, b.w, 8); });
+    giTos.forEach(g => { ctx.fillStyle = "#99d98c"; ctx.fillRect(g.x, g.y, g.w, g.h); ctx.fillStyle = "#fff"; ctx.fillRect(g.x+6, g.y+4, 4, 4); }); // Eiswürfel
+    doeners.forEach(d => { ctx.fillStyle = "#d4a373"; ctx.fillRect(d.x, d.y, d.w, d.h); });
+
+    // Spielfigur (Justus) zeichnen
+    let curImg = player.isDrinking ? imgJustusSauft : imgJustus;
+    if (curImg.complete && curImg.naturalWidth !== 0) {
+        ctx.save();
+        if (player.facing === "left") { ctx.translate(player.x + player.width, player.y); ctx.scale(-1, 1); ctx.drawImage(curImg, 0, 0, player.width, player.height); }
+        else { ctx.drawImage(curImg, player.x, player.y, player.width, player.height); }
+        ctx.restore();
+    } else {
+        // Fallback-Pixelblock
+        ctx.fillStyle = player.doenerPowerActive ? "#e63946" : (player.isDrinking ? "#fcbf49" : "#457b9d");
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    // Unendlich-Durst Aura-Effekt
+    if (player.doenerPowerActive) { ctx.strokeStyle = "#e63946"; ctx.lineWidth = 3; ctx.strokeRect(player.x-4, player.y-4, player.width+8, player.height+8); }
+
+    // HUD oben auf dem Bildschirm
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, 0, canvas.width, 40);
+    ctx.fillStyle = "#fff"; ctx.font = "14px 'Courier New'";
+    ctx.fillText(`BIERE: ${player.biereGesoffen}`, 15, 25);
+    ctx.fillText(`GEKIPPT: ${player.verschuettet}/100`, 140, 25);
+    if(gitoRoundActive) { ctx.fillStyle = "#99d98c"; ctx.fillText(`GITO-STORM!`, 310, 25); }
+
+    // Ressourcen-Bars am unteren HUD-Rand (über den Steuerelementen)
+    let uiY = canvas.height - 180;
+    ctx.fillStyle = "#111"; ctx.fillRect(0, uiY, canvas.width, 180);
+    
+    // Statusbalken Durst
+    ctx.fillStyle = "#fff"; ctx.font = "12px 'Courier New'"; ctx.fillText("DURST:", 20, uiY + 25);
+    ctx.fillStyle = "#555"; ctx.fillRect(80, uiY + 13, 120, 15);
+    ctx.fillStyle = player.doenerPowerActive ? "#e63946" : "#457b9d"; ctx.fillRect(80, uiY + 13, player.durst * 1.2, 15);
+
+    // Statusbalken Blase
+    ctx.fillStyle = "#fff"; ctx.fillText("BLASE:", 220, uiY + 25);
+    ctx.fillStyle = "#555"; ctx.fillRect(280, uiY + 13, 120, 15);
+    let blasenProzent = (player.blase / player.maxBlase) * 100;
+    ctx.fillStyle = blasenProzent >= 100 ? "#ff0000" : "#ffb703"; ctx.fillRect(280, uiY + 13, Math.min(blasenProzent, 100) * 1.2, 15);
+
+    // Virtueller Touch-Joystick & Button zeichnen
+    ctx.beginPath(); ctx.arc(joystick.x, joystick.y, joystick.radius, 0, Math.PI*2); ctx.fillStyle = "#333"; ctx.fill(); ctx.strokeStyle = "#666"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(joystick.knobX, joystick.knobY, 20, 0, Math.PI*2); ctx.fillStyle = "#888"; ctx.fill();
+    ctx.beginPath(); ctx.arc(drinkButton.x, drinkButton.y, drinkButton.radius, 0, Math.PI*2); ctx.fillStyle = player.isDrinking ? "#ffb703" : "#e63946"; ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText("SAUFEN", drinkButton.x - 22, drinkButton.y + 5);
+
+    // Milestone Blitz-Effekt (Alle 100 Biere)
+    if (milestoneEffectActive) { milestoneTimer--; ctx.fillStyle = `rgba(255,255,255,${milestoneTimer/90})`; ctx.fillRect(0,0,canvas.width,canvas.height); if(milestoneTimer<=0) milestoneEffectActive=false; }
+}
+
+function drawMenu() {
+    ctx.fillStyle = "#111"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffb703"; ctx.font = "24px 'Courier New'"; ctx.fillText("MÄDCHENNAME MADEMANN", 40, 120);
+    ctx.font = "16px 'Courier New'"; ctx.fillText("DIE NACHT DER 1000 BIERE", 90, 160);
+
+    // Arcade Deko-Flieger
+    ctx.fillStyle = "rgba(255,183,3,0.2)"; ctx.fillRect(60, 220, 20, 20); ctx.fillRect(360, 250, 20, 20);
+
+    menuButtons.forEach(b => {
+        ctx.fillStyle = "#333"; ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeStyle = "#ffb703"; ctx.strokeRect(b.x, b.y, b.w, b.h);
+        ctx.fillStyle = "#fff"; ctx.font = "16px 'Courier New'";
+        ctx.fillText(b.text, b.x + 25, b.y + 32);
+    });
+
+    // Highscore-Liste anzeigen
+    ctx.fillStyle = "#fff"; ctx.fillText("=== TOP 10 ARCADE HIGH === ", 80, 540);
+    highscores.slice(0, 10).forEach((h, idx) => {
+        ctx.fillText(`${idx+1}. ${h.name.padEnd(8, '.')} ${h.score} BIERE`, 80, 580 + (idx * 22));
+    });
+}
+
+function loadHighscores() {
+    db.collection("scores").orderBy("score", "desc").limit(10).get().then(snap => {
+        highscores = snap.docs.map(d => d.data());
+    }).catch(e => console.log(e));
+}
+loadHighscores();
+
+function gameOver() {
+    audio.bgBierloch.pause(); audio.bgGito.pause(); audio.urin.pause();
+    if(player.biereGesoffen >= 10) { gameState = "HIGHSCORE_INPUT"; } else { gameState = "GAMEOVER"; }
+}
+
+// TOUCH & CLICK EVENT-HANDLER
+function handleStart(clientX, clientY, identifier) {
+    let rect = canvas.getBoundingClientRect();
+    let x = (clientX - rect.left) * (canvas.width / rect.width);
+    let y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    if (gameState === "MENU") {
+        audio.bgMenu.play().catch(e=>e); // Interaktions-Freigabe für Web-Audio
+        menuButtons.forEach(b => {
+            if (x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h) {
+                if (b.text === "START") { initGame(); gameState = "PLAYING"; }
+                if (b.text === "SPIELREGELN") { gameState = "RULES"; }
+            }
+        });
+    } else if (gameState === "RULES") {
+        gameState = "MENU";
+    } else if (gameState === "GAMEOVER") {
+        gameState = "MENU"; loadHighscores();
+    } else if (gameState === "PLAYING") {
+        // Prüfen ob Joystick getroffen
+        let distJ = Math.hypot(x - joystick.x, y - joystick.y);
+        if (distJ < joystick.radius + 20) { joystick.active = true; joystick.id = identifier; }
+        // Prüfen ob Saufen-Knopf getroffen
+        let distB = Math.hypot(x - drinkButton.x, y - drinkButton.y);
+        if (distB < drinkButton.radius) activateTrinkmodus();
     }
 }
 
-function triggerMilestoneEffects() {
-    // Alle 100 Biere visuelle Effekte auslösen
-    if (player.biereGesoffen > 0 && player.biereGesoffen % 100 === 0) {
-        milestoneEffectActive = true;
-        milestoneTimer = 120; // 2 Sekunden blinken/Konfetti
+function handleMove(clientX, clientY, identifier) {
+    if (gameState === "PLAYING" && joystick.active && joystick.id === identifier) {
+        let rect = canvas.getBoundingClientRect();
+        let x = (clientX - rect.left) * (canvas.width / rect.width);
+        let y = (clientY - rect.top) * (canvas.height / rect.height);
+        
+        let dx = x - joystick.x; let dy = y - joystick.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist > joystick.radius) { dx = (dx / dist) * joystick.radius; dy = (dy / dist) * joystick.radius; }
+        
+        joystick.knobX = joystick.x + dx; joystick.knobY = joystick.y + dy;
+        joystick.vx = dx / joystick.radius; joystick.vy = dy / joystick.radius;
     }
 }
+
+function handleEnd(identifier) {
+    if (joystick.id === identifier) { joystick.active = false; joystick.id = null; joystick.knobX = joystick.x; joystick.knobY = joystick.y; joystick.vx = 0; joystick.vy
