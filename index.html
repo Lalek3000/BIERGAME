@@ -495,7 +495,7 @@ function triggerGameOver() {
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
     scrGameOver.style.display = "flex"; saveLocalHighscore();
 }
-// --- 5. VISUAL RENDERING ENGINE WITH CONTROLLED FLASH & CONFETTI ---
+// --- 5. DETAILED PIXEL-ART VISUAL RENDERING ENGINE ---
 function renderGame() {
     // 1. HINTERGRUND-RENDER (imgBackground oder Meilenstein-Farbe)
     if (imgBackground.complete && imgBackground.naturalWidth !== 0) {
@@ -504,19 +504,17 @@ function renderGame() {
         // Kontrolliertes 3-fach Blitzen bei vollen 100ern (Jeder Meilenstein eine andere Farbe)
         if (milestoneEffectActive && milestoneTimer > 0) {
             milestoneTimer--;
-            let flashInterval = 15; // Dauer eines einzelnen Blitzes in Frames
+            let flashInterval = 15; 
             let currentFlash = Math.floor(milestoneTimer / flashInterval);
             
-            // Wechselt alle 15 Frames zwischen Farbe und Transparent für exakt 3 Blitze
             if (currentFlash % 2 === 0) {
                 let colorArray = milestoneColors[colorShiftIdx % milestoneColors.length];
-                ctx.fillStyle = colorArray + "40"; // Fügt 25% Alpha-Transparenz hinzu
+                ctx.fillStyle = colorArray + "40"; // 25% Alpha-Transparenz
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             if (milestoneTimer <= 0) milestoneEffectActive = false;
         }
     } else {
-        // Fallback, wenn hintergrund.png fehlt
         let bgColors = ["#222", "#2a1f3d", "#1f332a", "#3d361f", "#3d1f1f"];
         ctx.fillStyle = bgColors[colorShiftIdx % bgColors.length];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -535,30 +533,19 @@ function renderGame() {
     ];
     ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Ed Sheeran", 55, 650);
     
-    for(let r=0; r<edSheeranMatrix.length; r++){
-        for(let c=0; c<edSheeranMatrix[r].length; c++){
+    for(let r=0; r < edSheeranMatrix.length; r++){
+        for(let c=0; c < edSheeranMatrix[r].length; c++){
             if(edSheeranMatrix[r][c] !== null){
-                ctx.fillStyle = edSheeranMatrix[r][c]; ctx.fillRect(25 + c*6, 660 + r*6, 6, 6);
+                ctx.fillStyle = edSheeranMatrix[r][c]; 
+                ctx.fillRect(25 + c*6, 660 + r*6, 6, 6);
             }
         }
     }
-
-    // Detailreiche Pixel-Art-Flaschenregale (Schwebend über deiner Bar-Grafik)
-    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 220, 80, 8); 
-    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 260, 80, 8);
-    ctx.fillStyle = "#e74c3c"; ctx.fillRect(460, 205, 6, 15); ctx.fillStyle = "#2ecc71"; ctx.fillRect(480, 205, 6, 15);
-    ctx.fillStyle = "#3498db"; ctx.fillRect(470, 245, 6, 15); ctx.fillStyle = "#f1c40f"; ctx.fillRect(495, 245, 6, 15);
-    
-    // Gummimatten, Spüle & blinkendes Barlicht (Frei schwebend)
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 340, 20, 4);   
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 380, 20, 4);   
-    ctx.fillStyle = "#95a5a6"; ctx.fillRect(485, 350, 30, 20);  
-    ctx.fillStyle = "#3498db"; ctx.fillRect(490, 355, 20, 10);  
-    
+        
     let lightColor = (Math.floor(Date.now() / 300) % 3 === 0) ? "#e74c3c" : ((Math.floor(Date.now() / 300) % 3 === 1) ? "#f1c40f" : "#00ffff");
     ctx.fillStyle = lightColor; ctx.beginPath(); ctx.arc(485, 190, 6, 0, Math.PI*2); ctx.fill();
 
-    // 3. PUNK-BAND (Über Bühnenhintergrund gezeichnet, im Stil von Ed Sheeran)
+    // 3. PUNK-BAND (Über deinen Bühnenhintergrund gezeichnet)
     let bandY = 40 + Math.sin(Date.now() * 0.008) * 6;
     
     // Keyboarder
