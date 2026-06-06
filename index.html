@@ -14,7 +14,7 @@
         #btn-rules { background: #3498db; }
         #btn-back { background: #e74c3c; margin-top: 30px; }
         #rules-text { max-width: 450px; font-size: 14px; line-height: 1.6; text-align: left; background: #222; padding: 20px; border-radius: 5px; height: 500px; overflow-y: auto; }
-        #drink-btn { position: absolute; bottom: 45px; left: 335px; width: 90px; height: 90px; border-radius: 50%; background: #d35400; border: 2px solid #fff; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 10; transform: translate(-50%, 50%); -webkit-tap-highlight-color: transparent; }
+        #drink-btn { position: absolute; bottom: 65px; left: 335px; width: 90px; height: 90px; border-radius: 50%; background: #d35400; border: 2px solid #fff; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 10; transform: translate(-50%, 50%); -webkit-tap-highlight-color: transparent; }
         #drink-btn:active { background: #2ecc71; }
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
@@ -44,10 +44,10 @@
             • <b>Ziel:</b> Trinke 1000 Biere für ein Gratis-Ticket!<br><br>
             • <b>Steuerung:</b> WASD / Pfeiltasten oder Smartphone-Joystick unten links.<br><br>
             • <b>Saufen:</b> LEERTASTE drücken oder rechts auf TRINKEN tippen.<br><br>
-            • <b>Durst:</b> Lädt sich dauerhaft auf. Trinken kostet Durst. Ist der Balken leer, saugst du Luft.<br><br>
+            • <b>Durst:</b> Lädt sich zügig auf. Trinken kostet Durst. Ist der Balken leer, saugst du Luft.<br><br>
             • <b>Blase:</b> Jedes Getränk füllt die Blase. Nach 15 Drinks ist sie randvoll!<br><br>
-            • <b>Klo-Flucht:</b> Eine volle Blase bremst dich extrem aus. Fliehe nach links unten (Fliesenbereich) zu Ed Sheeran, um in seine Akustikgitarre zu pinkeln!<br><br>
-            • <b>Snacks:</b> Sammle Brezeln an der detailreichen Bar rechts ein, um deinen Durst sofort anzufeuern.<br><br>
+            • <b>Klo-Flucht:</b> Eine volle Blase lässt dich extrem wellenartig taumeln! Fliehe nach ganz unten links in das Klo zu Ed Sheeran, um in seine Akustikgitarre zu pinkeln!<br><br>
+            • <b>Snacks:</b> Sammle Brezeln an der Bar rechts ein, um deinen Durst sofort anzufeuern.<br><br>
             • <b>Döner:</b> Erwische den seltenen Döner für 10 Sekunden unendlichen Durst.<br><br>
             • <b>Verschütten:</b> Kollision ohne aktiven Trinkmodus erzeugt eine Pfütze. Bei 100 Pfützen verlierst du!
         </div>
@@ -83,9 +83,9 @@ let lastTime = performance.now();
 const TARGET_FPS = 60;
 const FRAME_DURATION = 1000 / TARGET_FPS;
 
-// Timer und Trigger-Raten (angepasst, um die Überflutung zu stoppen!)
+// Timer und Trigger-Raten
 let beerSpawnTimer = 0;
-let nextGitoRoundTimer = 1800; // ca. alle 30 Sekunden im Test, erhöht für Balance
+let nextGitoRoundTimer = 1800; 
 let gitoRoundTimer = 0; 
 let gitoRoundActive = false;
 let nextDoenerTimer = 7200; 
@@ -93,7 +93,7 @@ let milestoneTimer = 0;
 let milestoneEffectActive = false; 
 let colorShiftIdx = 0;
 
-// Spielfigur Justus - VERKLEINERT von 60x90 auf 40x64 für bessere Spielbarkeit
+// Spielfigur Justus
 const player = {
     x: 240, y: 540, width: 40, height: 64, speed: 320, vx: 0, vy: 0,
     biereGesoffen: 0, verschuettet: 0, durst: 100, blase: 0, maxBlase: 15,
@@ -104,7 +104,7 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
-// Audios (Exakt deine Dateinamen + Loop-Fix für backgroundgito)
+// Audios laden + LAUTSTÄRKE GLOBAL HALBIEREN (0.5)
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -113,11 +113,18 @@ const audio = {
     klirr: new Audio("klirr.mp3"),
     urin: new Audio("urin.mp3")
 };
+
+// Lautstärke für alle Kanäle auf 50% setzen
+Object.keys(audio).forEach(key => {
+    audio[key].volume = 0.5;
+});
+
 audio.bgMenu.loop = true; 
 audio.bgBierloch.loop = true; 
 audio.bgGito.loop = true;
 
-// Bilder laden
+// Bilder laden (Inklusive deines eigenen Hintergrundbilds)
+const imgBackground = new Image(); imgBackground.src = 'hintergrund.png';
 const imgJustus = new Image(); imgJustus.src = 'justus.png';
 const imgJustusSauft = new Image(); imgJustusSauft.src = 'justussauft.png';
 // --- DOM ELEMENTE & INTERAKTIONEN ---
@@ -222,7 +229,7 @@ function tryDrink() {
         if (!player.doenerPowerActive) player.durst -= 15;
     }
 }
-// --- 4. GAME LOOP LOGIK MIT BALANCIERTEN SPAWN-RATEN ---
+// --- 4. GAME LOOP LOGIK MIT INTENSIVEM SCHWANKEFFEKT ---
 function startGame() {
     gameState = "PLAYING";
     player.biereGesoffen = 0; player.verschuettet = 0; player.blase = 0; player.durst = 100;
@@ -236,7 +243,6 @@ function startGame() {
 function updateGame(dt) {
     let ticks = dt / FRAME_DURATION;
 
-    // Bier-Spawning gebremst (Alle 7 bis 20 Frames bei 60 FPS = 3 bis 8 Biere pro Sekunde)
     beerSpawnTimer -= ticks;
     if (beerSpawnTimer <= 0) {
         beers.push({
@@ -247,21 +253,17 @@ function updateGame(dt) {
         beerSpawnTimer = 7 + Math.floor(Math.random() * 13);
     }
 
-    // GiTo Runden Timer & Musikwechsel-Fix
     if (!gitoRoundActive) {
         nextGitoRoundTimer -= ticks;
         if (nextGitoRoundTimer <= 0) {
-            gitoRoundActive = true; 
-            gitoRoundTimer = 480; // 8 Sekunden
-            audio.bgBierloch.pause(); 
-            audio.bgGito.currentTime = 0; 
-            audio.bgGito.play().catch(e => console.log("GiTo Musik Fehler:", e));
+            gitoRoundActive = true; gitoRoundTimer = 480;
+            audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; 
+            audio.bgGito.play().catch(e => console.log(e));
         }
     }
 
     if (gitoRoundActive) {
         gitoRoundTimer -= ticks;
-        // Spawnt seltener (alle 20 Ticks statt alle 10 Ticks), um Überflutung zu stoppen
         if (Math.floor(gitoRoundTimer) % 20 === 0 && gitoRoundTimer > 0) {
             giTos.push({
                 x: canvas.width - 60, y: 200 + Math.random() * 200,
@@ -270,14 +272,11 @@ function updateGame(dt) {
             });
         }
         if (gitoRoundTimer <= 0) {
-            gitoRoundActive = false; 
-            nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60; // Nächste Runde in 2-4 Min
-            audio.bgGito.pause(); 
-            audio.bgBierloch.play().catch(e => console.log(e));
+            gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60;
+            audio.bgGito.pause(); audio.bgBierloch.play().catch(e => console.log(e));
         }
     }
 
-    // Döner Spawning (ca. alle 2 Minuten)
     nextDoenerTimer -= ticks;
     if (nextDoenerTimer <= 0) {
         doeners.push({ x: canvas.width / 2, y: 80, vx: (Math.random() - 0.5) * 3, vy: 1, width: 30, height: 20, gravity: 0.05 });
@@ -290,11 +289,8 @@ function updateGame(dt) {
 
     if (player.doenerPowerActive && (player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
     if (player.isDrinking && (player.drinkTimer -= ticks) <= 0) player.isDrinking = false;
-    
-    // Schneller Durst-Zuwachs für flüssige Spielbarkeit
     if (!player.doenerPowerActive && player.durst < 100) player.durst += 0.15 * ticks;
 
-    // Bewegungsberechnung
     let moveX = keys['d'] || keys['D'] || keys['ArrowRight'] ? 1 : (keys['a'] || keys['A'] || keys['ArrowLeft'] ? -1 : 0);
     let moveY = keys['s'] || keys['S'] || keys['ArrowDown'] ? 1 : (keys['w'] || keys['W'] || keys['ArrowUp'] ? -1 : 0);
     if (joystick.active) { moveX = joystick.vx; moveY = joystick.vy; }
@@ -304,13 +300,31 @@ function updateGame(dt) {
         moveX /= len; moveY /= len;
     }
 
-    let alc = Math.min(player.biereGesoffen / 200, 1.0);
+    // --- ALKOHOL- & BLASEN-PHYSIK (VERSTÄRKT & WELLENARTIG) ---
+    let alc = Math.min(player.biereGesoffen / 120, 1.0); // Setzt jetzt deutlich früher ein (voll bei 120 Bieren)
     let speed = player.blase >= player.maxBlase ? (player.speed * 0.4) : player.speed;
-    let swayX = alc > 0 ? Math.sin(Date.now() * 0.003) * alc * 2.5 : 0;
-    let swayY = alc > 0 ? Math.cos(Date.now() * 0.004) * alc * 1.5 : 0;
+    
+    let swayX = 0;
+    let swayY = 0;
+    
+    if (player.blase >= player.maxBlase) {
+        // Extremes, träges, weit ausschlagendes Taumeln bei voller Blase
+        let time = Date.now() * 0.0025;
+        swayX = Math.sin(time) * 160; 
+        swayY = Math.cos(time * 0.8) * 90;
+    } else if (alc > 0) {
+        // Normaler, progressiv steigender Promille-Sway
+        let time = Date.now() * 0.003;
+        swayX = Math.sin(time) * alc * 45;
+        swayY = Math.cos(time * 1.2) * alc * 25;
+    }
 
-    player.vx += (moveX * speed + swayX - player.vx) * Math.min((0.15 - alc * 0.12) * ticks, 1);
-    player.vy += (moveY * speed + swayY - player.vy) * Math.min((0.15 - alc * 0.12) * ticks, 1);
+    let targetVx = moveX * speed + swayX;
+    let targetVy = moveY * speed + swayY;
+    let easing = (0.15 - alc * 0.12) * ticks; // Trägheit erhöht sich mit Alkoholgehalt
+
+    player.vx += (targetVx - player.vx) * Math.min(easing, 1);
+    player.vy += (targetVy - player.vy) * Math.min(easing, 1);
     
     player.x = Math.max(0, Math.min(canvas.width - player.width, player.x + player.vx * (dt / 1000)));
     player.y = Math.max(120, Math.min(canvas.height - 180 - player.height, player.y + player.vy * (dt / 1000)));
@@ -318,8 +332,8 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
-    // KLOZONE VERSCHOBEN: Jetzt weiter unten (X < 110 und Y zwischen 320 und 580)
-    if (player.x < 110 && player.y > 320 && player.y < 580 && player.blase > 0) {
+    // KLOZONE GANZ UNTEN LINKS PLATZIERT (X < 110, Y zwischen 620 und 780)
+    if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
         if (audio.urin.paused) { audio.urin.currentTime = 0; audio.urin.play().catch(e => console.log(e)); }
     } else { audio.urin.pause(); }
@@ -327,7 +341,6 @@ function updateGame(dt) {
     let pR = { x: player.x, y: player.y, w: player.width, h: player.height };
     let checkHit = (el) => pR.x < el.x + el.width && pR.x + pR.w > el.x && pR.y < el.y + el.height && pR.y + pR.h > el.y;
 
-    // Kollision Biere + SOUND-EFFEKTE TRIGGERN
     for (let i = beers.length - 1; i >= 0; i--) {
         let b = beers[i]; b.vy += b.gravity * ticks; b.x += b.vx * ticks; b.y += b.vy * ticks;
         if (checkHit(b)) {
@@ -336,8 +349,7 @@ function updateGame(dt) {
                 audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e));
                 if (player.biereGesoffen % 100 === 0) { colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 120; }
             } else {
-                player.verschuettet++; 
-                audio.klirr.currentTime = 0; audio.klirr.play().catch(e => console.log(e)); // Sound beim Verkippen
+                player.verschuettet++; audio.klirr.currentTime = 0; audio.klirr.play().catch(e => console.log(e));
                 pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height - 190) });
                 if (player.verschuettet >= 100) triggerGameOver();
             }
@@ -346,17 +358,15 @@ function updateGame(dt) {
         if (b.y > canvas.height - 180 || b.x < 0 || b.x > canvas.width) beers.splice(i, 1);
     }
 
-    // Kollision GiTos + SOUND-EFFEKTE TRIGGERN
     for (let i = giTos.length - 1; i >= 0; i--) {
         let g = giTos[i]; g.x += g.vx * ticks; g.y += g.vy * ticks;
         if (checkHit(g)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen += 3; player.blase++;
-                audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e)); // Rülpsen beim erfolgreichen Trinken
+                audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e));
                 if (player.biereGesoffen % 100 === 0) { colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 120; }
             } else {
-                player.verschuettet++; 
-                audio.klirr.currentTime = 0; audio.klirr.play().catch(e => console.log(e)); // Klirren beim Verkippen
+                player.verschuettet++; audio.klirr.currentTime = 0; audio.klirr.play().catch(e => console.log(e));
                 pfuetzen.push({ x: g.x, y: g.y }); if (player.verschuettet >= 100) triggerGameOver();
             }
             giTos.splice(i, 1); continue;
@@ -364,7 +374,6 @@ function updateGame(dt) {
         if (g.x < 0 || g.y < 120 || g.y > canvas.height - 180) giTos.splice(i, 1);
     }
 
-    // Kollision Döner
     for (let i = doeners.length - 1; i >= 0; i--) {
         let d = doeners[i]; d.vy += d.gravity * ticks; d.x += d.vx * ticks; d.y += d.vy * ticks;
         if (checkHit(d)) {
@@ -380,28 +389,36 @@ function updateGame(dt) {
 }
 
 function triggerGameOver() {
-    gameState = "GAMEOVER";
-    btnDrink.style.display = "none";
-    audio.urin.pause();
+    gameState = "GAMEOVER"; btnDrink.style.display = "none"; audio.urin.pause();
     document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
-    scrGameOver.style.display = "flex";
-    saveLocalHighscore();
+    scrGameOver.style.display = "flex"; saveLocalHighscore();
 }
-// --- 5. DETAILED PIXEL-ART VISUAL RENDERING ENGINE ---
+// --- 5. DETAILED RENDERING ENGINE WITH BACKGROUND IMAGE ---
 function renderGame() {
-    let colors = ["#222", "#2a1f3d", "#1f332a", "#3d361f", "#3d1f1f"];
-    ctx.fillStyle = colors[colorShiftIdx % colors.length];
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Falls dein hintergrund.png geladen ist, wird es gezeichnet. Sonst greift der Meilenstein-Farbwechsel.
+    if (imgBackground.complete && imgBackground.naturalWidth !== 0) {
+        ctx.drawImage(imgBackground, 0, 0, canvas.width, canvas.height);
+        
+        // Meilenstein-Blitzeffekt kurz über den Hintergrund zeichnen bei vollen 100ern
+        if (milestoneTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
+            ctx.fillStyle = "rgba(241, 196, 15, 0.25)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    } else {
+        let colors = ["#222", "#2a1f3d", "#1f332a", "#3d361f", "#3d1f1f"];
+        ctx.fillStyle = colors[colorShiftIdx % colors.length];
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-    // 1. KLO-BEREICH (Nach unten versetzt, Y: 320-580, X: 0-110)
-    ctx.fillStyle = "#333"; ctx.fillRect(0, 320, 110, 260);
-    ctx.fillStyle = "#444";
-    for (let y = 320; y < 580; y += 20) {
+    // 1. KLO-BEREICH (Ganz unten links platziert, Y: 620-780, X: 0-110)
+    ctx.fillStyle = "rgba(51, 51, 51, 0.85)"; ctx.fillRect(0, 620, 110, 160);
+    ctx.fillStyle = "rgba(68, 68, 68, 0.5)";
+    for (let y = 620; y < 780; y += 20) {
         for (let x = 0; x < 110; x += 20) { if ((x + y) / 20 % 2 === 0) ctx.fillRect(x, y, 20, 20); }
     }
     
-    // Pixel-Art: Ed Sheeran & braune Akustikgitarre (Handgezeichnete Pixel-Art)
+    // Ed Sheeran + Detaillierte Akustikgitarre (Sitzt jetzt tiefer bei Y: 660)
     let edSheeranMatrix = [
         [null, null, "#e67e22", "#e67e22", "#e67e22", "#e67e22", null, null, null, null],
         [null, "#e67e22", "#ffcc99", "#ffcc99", "#ffcc99", "#ffcc99", "#e67e22", null, null, null],
@@ -412,78 +429,72 @@ function renderGame() {
         [null, "#3498db", "#3498db", "#cd853f", "#000000", "#cd853f", "#3498db", "#8b4513", "#8b4513", "#8b4513"],
         [null, "#2980b9", "#2980b9", "#cd853f", "#cd853f", "#2980b9", "#2980b9", null, null, null]
     ];
-    ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Ed Sheeran", 55, 390);
+    ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Ed Sheeran", 55, 650);
     
     for(let r=0; r<edSheeranMatrix.length; r++){
         for(let c=0; c<edSheeranMatrix[r].length; c++){
             if(edSheeranMatrix[r][c] !== null){
-                ctx.fillStyle = edSheeranMatrix[r][c]; ctx.fillRect(25 + c*6, 400 + r*6, 6, 6);
+                ctx.fillStyle = edSheeranMatrix[r][c]; ctx.fillRect(25 + c*6, 660 + r*6, 6, 6);
             }
         }
     }
 
-    // 2. CREATIVE BAR-BEREICH (Regale, Gummimatten, Spülbecken)
-    ctx.fillStyle = "#2c3e50"; ctx.fillRect(430, 200, 110, 260);
-    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 220, 80, 8); // Regal 1
-    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 260, 80, 8); // Regal 2
+    // 2. CREATIVE BAR-BEREICH (Verkleinert am rechten Rand, Y: 200-460, X: 430-540)
+    ctx.fillStyle = "rgba(44, 62, 80, 0.9)"; ctx.fillRect(430, 200, 110, 260);
+    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 220, 80, 8); // Regale
+    ctx.fillStyle = "#5c4033"; ctx.fillRect(450, 260, 80, 8);
     ctx.fillStyle = "#e74c3c"; ctx.fillRect(460, 205, 6, 15); ctx.fillStyle = "#2ecc71"; ctx.fillRect(480, 205, 6, 15);
     ctx.fillStyle = "#3498db"; ctx.fillRect(470, 245, 6, 15); ctx.fillStyle = "#f1c40f"; ctx.fillRect(495, 245, 6, 15);
     
     ctx.fillStyle = "#7f8c8d"; ctx.fillRect(430, 320, 8, 140); // Tresen
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 340, 20, 4);   // Matte 1
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 380, 20, 4);   // Matte 2
+    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 340, 20, 4);   // Gummimatte 1
+    ctx.fillStyle = "#2ecc71"; ctx.fillRect(445, 380, 20, 4);   // Gummimatte 2
     ctx.fillStyle = "#95a5a6"; ctx.fillRect(485, 350, 30, 20);  // Spüle
     ctx.fillStyle = "#3498db"; ctx.fillRect(490, 355, 20, 10);  // Wasser
     
     let lightColor = (Math.floor(Date.now() / 300) % 3 === 0) ? "#e74c3c" : ((Math.floor(Date.now() / 300) % 3 === 1) ? "#f1c40f" : "#00ffff");
     ctx.fillStyle = lightColor; ctx.beginPath(); ctx.arc(485, 190, 6, 0, Math.PI*2); ctx.fill();
 
-    // 3. BAND-BÜHNE (Punkband im selben Pixel-Stil)
-    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, 120);
-    if (milestoneTimer > 0) {
-        milestoneTimer--; if (Math.floor(Date.now() / 100) % 2 === 0) { ctx.fillStyle = "rgba(241, 196, 15, 0.4)"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    }
+    // 3. BAND-BÜHNE (Oben über den Hintergrund gezeichnet)
+    ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, 0, canvas.width, 120);
     let bandY = 40 + Math.sin(Date.now() * 0.008) * 6;
     
     ctx.fillStyle = "#555"; ctx.fillRect(210, 10, 120, 18);
-    ctx.fillStyle = "#ff0000"; ctx.font = "bold 10px monospace"; ctx.fillText("PUNK-ROCK", 270, 23);
+    ctx.fillStyle = "#ff0000"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center"; ctx.fillText("PUNK-ROCK", 270, 23);
 
-    // Keyboarder (Links)
+    // Keyboarder
     ctx.fillStyle = "#d35400"; ctx.fillRect(130, bandY, 20, 20); ctx.fillStyle = "#ffcc99"; ctx.fillRect(132, bandY+5, 16, 15);
     ctx.fillStyle = "#9b59b6"; ctx.fillRect(125, bandY+20, 30, 25); ctx.fillStyle = "#fff"; ctx.fillRect(115, bandY + 30, 25, 5);
     ctx.fillStyle = "#000"; ctx.fillRect(115, bandY + 30, 3, 5); ctx.fillRect(123, bandY + 30, 3, 5);
 
-    // Drummer & Drumset (Mitte)
+    // Drummer & Drumset
     ctx.fillStyle = "#e74c3c"; ctx.fillRect(255, bandY, 30, 30); ctx.fillStyle = "#ffcc99"; ctx.fillRect(260, bandY+5, 20, 15);
     ctx.fillStyle = "#7f8c8d"; ctx.fillRect(240, bandY + 22, 18, 18); ctx.fillRect(282, bandY + 22, 18, 18);
     ctx.fillStyle = "#bdc3c7"; ctx.beginPath(); ctx.arc(270, bandY + 35, 15, 0, Math.PI*2); ctx.fill();
 
-    // Bassist (Rechts)
+    // Bassist
     ctx.fillStyle = "#2980b9"; ctx.fillRect(385, bandY, 20, 20); ctx.fillStyle = "#ffcc99"; ctx.fillRect(387, bandY+5, 16, 15);
     ctx.fillStyle = "#3498db"; ctx.fillRect(380, bandY+20, 30, 25);
     ctx.fillStyle = "#6e2c00"; ctx.fillRect(360, bandY + 25, 45, 5); ctx.fillStyle = "#f1c40f"; ctx.fillRect(360, bandY + 23, 12, 8);
-    // 4. FLOATING ITEMS (Pixel-Art Designs für Getränke)
+
+    // 4. FLOATING ITEMS
     beers.forEach(b => {
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(b.x, b.y, b.width, 8); // Schaumkrone
-        ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x + 2, b.y + 8, b.width - 4, b.height - 8); // Bierkörper
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(b.x, b.y, b.width, 8); // Schaum
+        ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x + 2, b.y + 8, b.width - 4, b.height - 8); // Saft
         ctx.fillStyle = "#d35400"; ctx.fillRect(b.x + 1, b.y + 12, 2, b.height - 16); // Henkel
     });
 
     giTos.forEach(g => {
-        ctx.fillStyle = "#a3e4d7"; ctx.fillRect(g.x, g.y, g.width, g.height); // Blassgrün
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 3, g.y + 4, 5, 5); ctx.fillRect(g.x + 12, g.y + 14, 5, 5); // Eis
-        ctx.fillStyle = "#27ae60"; ctx.fillRect(g.x + g.width - 7, g.y + 3, 5, 5); // Gurke
+        ctx.fillStyle = "#a3e4d7"; ctx.fillRect(g.x, g.y, g.width, g.height); 
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 3, g.y + 4, 5, 5); ctx.fillRect(g.x + 12, g.y + 14, 5, 5); 
+        ctx.fillStyle = "#27ae60"; ctx.fillRect(g.x + g.width - 7, g.y + 3, 5, 5); 
     });
 
-    doeners.forEach(d => { 
-        ctx.fillStyle = "#d35400"; ctx.fillRect(d.x, d.y, d.width, d.height); 
-        ctx.fillStyle = "#2ecc71"; ctx.fillRect(d.x + 4, d.y + 3, d.width - 8, 4); 
-    });
-    
+    doeners.forEach(d => { ctx.fillStyle = "#d35400"; ctx.fillRect(d.x, d.y, d.width, d.height); ctx.fillStyle = "#2ecc71"; ctx.fillRect(d.x + 4, d.y + 3, d.width - 8, 4); });
     ctx.fillStyle = "#b45f06"; snacks.forEach(s => ctx.fillRect(s.x, s.y, s.width, s.height));
     ctx.fillStyle = "#f39c12"; pfuetzen.forEach(p => ctx.fillRect(p.x - 15, p.y - 3, 30, 6));
 
-    // 5. SPIELFIGUR JUSTUS (PNG-Fallback)
+    // 5. SPIELFIGUR JUSTUS (Verkleinert)
     ctx.save();
     let curImg = player.isDrinking ? imgJustusSauft : imgJustus;
     if (curImg.complete && curImg.naturalWidth !== 0) {
@@ -496,11 +507,13 @@ function renderGame() {
     }
     ctx.restore();
 
-    // 6. DETAILED URIN-STRAHL IN EDS SCHALL-LOCH
-    if (player.x < 110 && player.y > 320 && player.y < 580 && player.blase > 0) {
-        ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 3; ctx.beginPath();
-        ctx.moveTo(player.x + player.width/2, player.y + 30); 
-        ctx.lineTo(47, 442); // Zielt exakt in das Schallloch von Eds gezeichneter Klampfe
+    // 6. DICKE URIN-STRAHL IN EDS SCHALL-LOCH (Auf 6 Pixel verdickt!)
+    if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
+        ctx.strokeStyle = "#f1c40f"; 
+        ctx.lineWidth = 6; // Erhöht von 3 auf 6 für einen kräftigen Strahl!
+        ctx.beginPath();
+        ctx.moveTo(player.x + player.width/2, player.y + 20); 
+        ctx.lineTo(47, 702); // Trifft das Schallloch bei Eds neuer tieferer Position
         ctx.stroke();
     }
 
