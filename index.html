@@ -70,86 +70,103 @@
 </div>
 
 <script>
-// --- WEB AUDIO SYNTHESIZER FOR LIVE EFFECTS ---
+// --- CRASH-PROOF WEB AUDIO SYNTHESIZER ---
 const AudioSynth = {
     ctx: null,
     urinInterval: null,
 
     init() {
         if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            try {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log("Web Audio API wird nicht unterstützt:", e);
+            }
+        }
+        // Reaktivierung falls im suspendierten Zustand (Browser-Schutz)
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(e => console.log(e));
         }
     },
 
     playDrink() {
         this.init();
-        let osc = this.ctx.createOscillator();
-        let gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        if (!this.ctx) return;
+        try {
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-        // Satter, ansteigender "Schluck-und-Saug"-Ton
-        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
 
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
 
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.15);
+        } catch (e) {
+            console.log("Fehler bei Drink-Audio-Synthese:", e);
+        }
     },
 
     playSpill() {
         this.init();
-        let osc = this.ctx.createOscillator();
-        let gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        if (!this.ctx) return;
+        try {
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
 
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-        // Fieser, abfallender "Klirr-und-Zisch"-Sound
-        osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.25);
 
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
 
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.25);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.25);
+        } catch (e) {
+            console.log("Fehler bei Spill-Audio-Synthese:", e);
+        }
     },
 
     startUrin() {
         this.init();
-        if (this.urinInterval) return;
+        if (!this.ctx || this.urinInterval) return;
+        try {
+            this.urinInterval = setInterval(() => {
+                if (!this.ctx || this.ctx.state === 'suspended') return;
+                let bufferSize = this.ctx.sampleRate * 0.05;
+                let buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                let data = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
 
-        // Moduliertes Rauschen für den Urinstrahl
-        this.urinInterval = setInterval(() => {
-            if (!this.ctx) return;
-            let bufferSize = this.ctx.sampleRate * 0.05;
-            let buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-            let data = buffer.getChannelData(0);
-            
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-            }
+                let noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
 
-            let noise = this.ctx.createBufferSource();
-            noise.buffer = buffer;
+                let filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400 + Math.random() * 150, this.ctx.currentTime);
 
-            let filter = this.ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            // Frequenz leicht variieren lassen für lebendigen Plätschersound
-            filter.frequency.setValueAtTime(400 + Math.random() * 150, this.ctx.currentTime);
+                let gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
 
-            let gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-
-            noise.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.ctx.destination);
-            noise.start();
-        }, 40);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }, 40);
+        } catch (e) {
+            console.log("Fehler bei Urin-Audio-Synthese:", e);
+        }
     },
 
     stopUrin() {
@@ -160,7 +177,7 @@ const AudioSynth = {
     }
 };
 
-// --- CORE GAME SETUP ---
+// --- CORE ENGINE SETUP ---
 let lastTime = performance.now();
 const TARGET_FPS = 60;
 const FRAME_DURATION = 1000 / TARGET_FPS;
@@ -168,12 +185,10 @@ const FRAME_DURATION = 1000 / TARGET_FPS;
 let beerSpawnTimer = 0, nextGitoRoundTimer = 1800, gitoRoundTimer = 0, gitoRoundActive = false;
 let nextDoenerTimer = 7200, colorShiftIdx = 0;
 
-// Exakt 3 Blitze für das Blink-System kontrollieren
 let milestoneTimer = 0;
-let milestoneFlashCount = 0;
+let milestoneEffectActive = false;
 let milestoneColors = ["#8e44ad", "#27ae60", "#2980b9", "#f39c12", "#e74c3c", "#16a085"];
 
-// Konfetti-Partikel für die 1000er-Bier-Explosion
 let confettiParticles = [];
 
 const player = {
@@ -185,6 +200,7 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
+// MP3-Audios (Werden fehlertolerant via Methode geladen, um Promises-Abstürze im Keim zu ersticken)
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -193,6 +209,13 @@ const audio = {
 };
 Object.keys(audio).forEach(key => audio[key].volume = 0.5);
 audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
+
+// Hilfsfunktion zum sicheren, absturzfreien Abspielen von MP3s
+function safePlay(audioObj) {
+    if (audioObj) {
+        audioObj.play().catch(e => console.log("Autoplay blockiert oder Datei fehlt. Spiel läuft ungestört weiter:", e.message));
+    }
+}
 
 const imgBackground = new Image(); imgBackground.src = 'hintergrund.png';
 const imgJustus = new Image(); imgJustus.src = 'justus.png';
@@ -204,7 +227,7 @@ const scrGameOver = document.getElementById("gameover-screen");
 const btnDrink = document.getElementById("drink-btn");
 
 document.getElementById("btn-start").addEventListener("click", () => {
-    AudioSynth.init();
+    AudioSynth.init(); // Schützt vor Browser-Blockaden bei Spielstart
     scrMenu.style.display = "none";
     btnDrink.style.display = "flex";
     startGame();
@@ -227,8 +250,8 @@ document.getElementById("btn-restart").addEventListener("click", () => {
     loadHighscores();
 });
 
-btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); tryDrink(); });
-btnDrink.addEventListener("mousedown", () => { tryDrink(); });
+btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); });
+btnDrink.addEventListener("mousedown", () => { AudioSynth.init(); tryDrink(); });
 
 // --- LOCAL STORAGE HIGHSCORES (TOP 5) ---
 function loadHighscores() {
@@ -259,12 +282,13 @@ function saveLocalHighscore() {
 
 // --- CONTROLS INPUT SYSTEM ---
 window.addEventListener('keydown', e => {
+    AudioSynth.init(); // Aktiviert Audio-Kontext bei Tastendruck
     keys[e.key] = true;
     if (e.key === ' ' || e.key === 'Spacebar') tryDrink();
 });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-canvas.addEventListener('touchstart', e => { e.preventDefault(); handleTouch(e.touches); }, { passive: false });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); AudioSynth.init(); handleTouch(e.touches); }, { passive: false });
 canvas.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.touches); }, { passive: false });
 canvas.addEventListener('touchend', e => {
     e.preventDefault();
@@ -306,10 +330,10 @@ function startGame() {
     gameState = "PLAYING";
     player.biereGesoffen = 0; player.verschuettet = 0; player.blase = 0; player.durst = 100;
     beers = []; giTos = []; doeners = []; snacks = []; pfuetzen = []; confettiParticles = [];
-    milestoneTimer = 0; milestoneFlashCount = 0;
+    milestoneTimer = 0; milestoneEffectActive = false;
     audio.bgMenu.pause();
     audio.bgBierloch.currentTime = 0;
-    audio.bgBierloch.play().catch(e => console.log(e));
+    safePlay(audio.bgBierloch);
     lastTime = performance.now();
 }
 
@@ -344,8 +368,9 @@ function updateGame(dt) {
         nextGitoRoundTimer -= ticks;
         if (nextGitoRoundTimer <= 0) {
             gitoRoundActive = true; gitoRoundTimer = 480;
-            audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; 
-            audio.bgGito.play().catch(e => console.log(e));
+            audio.bgBierloch.pause(); 
+            audio.bgGito.currentTime = 0; 
+            safePlay(audio.bgGito);
         }
     }
 
@@ -360,7 +385,9 @@ function updateGame(dt) {
         }
         if (gitoRoundTimer <= 0) {
             gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60;
-            audio.bgGito.pause(); audio.bgBierloch.play().catch(e => console.log(e));
+            audio.bgGito.pause(); 
+            audio.bgBierloch.currentTime = 0;
+            safePlay(audio.bgBierloch);
         }
     }
 
@@ -408,36 +435,33 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
-    // KLOZONE SYNTH-SOUNDS AKTIVIEREN
+    // KLOZONE GANZ UNTEN LINKS PLATZIERT (X < 110, Y zwischen 620 und 780)
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
-        AudioSynth.startUrin(); // Synthetisierter Urinsound an
+        AudioSynth.startUrin();
     } else { 
-        AudioTheme = AudioSynth.stopUrin(); // Sofort stoppen bei Verlassen
+        AudioSynth.stopUrin();
     }
 
     let pR = { x: player.x, y: player.y, w: player.width, h: player.height };
     let checkHit = (el) => pR.x < el.x + el.width && pR.x + pR.w > el.x && pR.y < el.y + el.height && pR.y + pR.h > el.y;
 
-    // Biere kollidieren + Audio triggers
     for (let i = beers.length - 1; i >= 0; i--) {
         let b = beers[i]; b.vy += b.gravity * ticks; b.x += b.vx * ticks; b.y += b.vy * ticks;
         if (checkHit(b)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen++; player.blase++;
-                AudioSynth.playDrink(); // Live Synthesizer Schlucksound
-                audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e));
+                AudioSynth.playDrink();
+                audio.ruelps.currentTime = 0; safePlay(audio.ruelps);
                 
                 if (player.biereGesoffen % 100 === 0) { 
                     colorShiftIdx++; 
                     milestoneEffectActive = true; 
-                    milestoneTimer = 90; // Exakt 3 Blitze (90 Frames Takt)
-                    milestoneFlashCount = 0;
-                    if (player.biereGesoffen === 1000) spawnConfetti(); // 1000er Konfetti Zündung!
+                    milestoneTimer = 90; 
+                    if (player.biereGesoffen === 1000) spawnConfetti();
                 }
             } else {
-                player.verschuettet++; 
-                AudioSynth.playSpill(); // Live Synthesizer Klirrsound
+                player.verschuettet++; AudioSynth.playSpill();
                 pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height - 190) });
                 if (player.verschuettet >= 100) triggerGameOver();
             }
@@ -446,21 +470,19 @@ function updateGame(dt) {
         if (b.y > canvas.height - 180 || b.x < 0 || b.x > canvas.width) beers.splice(i, 1);
     }
 
-    // GiTos kollidieren + Audio triggers
     for (let i = giTos.length - 1; i >= 0; i--) {
         let g = giTos[i]; g.x += g.vx * ticks; g.y += g.vy * ticks;
         if (checkHit(g)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen += 3; player.blase++;
                 AudioSynth.playDrink();
-                audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e));
+                audio.ruelps.currentTime = 0; safePlay(audio.ruelps);
                 if (player.biereGesoffen % 100 === 0) { 
-                    colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90; milestoneFlashCount = 0;
+                    colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90;
                     if (player.biereGesoffen === 1000) spawnConfetti();
                 }
             } else {
-                player.verschuettet++; 
-                AudioSynth.playSpill();
+                player.verschuettet++; AudioSynth.playSpill();
                 pfuetzen.push({ x: g.x, y: g.y }); if (player.verschuettet >= 100) triggerGameOver();
             }
             giTos.splice(i, 1); continue;
@@ -468,11 +490,10 @@ function updateGame(dt) {
         if (g.x < 0 || g.y < 120 || g.y > canvas.height - 180) giTos.splice(i, 1);
     }
 
-    // Döner kollidieren
     for (let i = doeners.length - 1; i >= 0; i--) {
         let d = doeners[i]; d.vy += d.gravity * ticks; d.x += d.vx * ticks; d.y += d.vy * ticks;
         if (checkHit(d)) {
-            if (player.isDrinking) { player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); audio.ruelps.currentTime = 0; audio.ruelps.play().catch(e => console.log(e)); }
+            if (player.isDrinking) { player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); audio.ruelps.currentTime = 0; safePlay(audio.ruelps); }
             doeners.splice(i, 1); continue;
         }
         if (d.y > canvas.height - 180) doeners.splice(i, 1);
@@ -482,7 +503,6 @@ function updateGame(dt) {
         if (checkHit(snacks[i])) { player.durst = Math.min(100, player.durst + 25); snacks.splice(i, 1); }
     }
 
-    // Konfetti Partikel updaten
     for (let i = confettiParticles.length - 1; i >= 0; i--) {
         let p = confettiParticles[i]; p.vy += p.gravity * ticks; p.x += p.vx * ticks; p.y += p.vy * ticks;
         if (p.y > canvas.height - 180) confettiParticles.splice(i, 1);
@@ -491,17 +511,17 @@ function updateGame(dt) {
 
 function triggerGameOver() {
     gameState = "GAMEOVER"; btnDrink.style.display = "none"; AudioSynth.stopUrin();
+    audio.bgBierloch.pause(); audio.bgGito.pause();
+    audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
     document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
     scrGameOver.style.display = "flex"; saveLocalHighscore();
 }
-// --- 5. DETAILED PIXEL-ART VISUAL RENDERING ENGINE ---
+// --- 5. VISUAL RENDERING ENGINE ---
 function renderGame() {
-    // 1. HINTERGRUND-RENDER (imgBackground oder Meilenstein-Farbe)
     if (imgBackground.complete && imgBackground.naturalWidth !== 0) {
         ctx.drawImage(imgBackground, 0, 0, canvas.width, canvas.height);
         
-        // Kontrolliertes 3-fach Blitzen bei vollen 100ern (Jeder Meilenstein eine andere Farbe)
         if (milestoneEffectActive && milestoneTimer > 0) {
             milestoneTimer--;
             let flashInterval = 15; 
@@ -509,7 +529,7 @@ function renderGame() {
             
             if (currentFlash % 2 === 0) {
                 let colorArray = milestoneColors[colorShiftIdx % milestoneColors.length];
-                ctx.fillStyle = colorArray + "40"; // 25% Alpha-Transparenz
+                ctx.fillStyle = colorArray + "40"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             if (milestoneTimer <= 0) milestoneEffectActive = false;
@@ -520,7 +540,7 @@ function renderGame() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. ED SHEERAN + DETALLIERTE AKUSTIKGITARRE (Y: 660, X: 25)
+    // Ed Sheeran + Detaillierte Akustikgitarre (Y: 660, X: 25)
     let edSheeranMatrix = [
         [null, null, "#e67e22", "#e67e22", "#e67e22", "#e67e22", null, null, null, null],
         [null, "#e67e22", "#ffcc99", "#ffcc99", "#ffcc99", "#ffcc99", "#e67e22", null, null, null],
@@ -536,16 +556,12 @@ function renderGame() {
     for(let r=0; r < edSheeranMatrix.length; r++){
         for(let c=0; c < edSheeranMatrix[r].length; c++){
             if(edSheeranMatrix[r][c] !== null){
-                ctx.fillStyle = edSheeranMatrix[r][c]; 
-                ctx.fillRect(25 + c*6, 660 + r*6, 6, 6);
+                ctx.fillStyle = edSheeranMatrix[r][c]; ctx.fillRect(25 + c*6, 660 + r*6, 6, 6);
             }
         }
     }
-        
-    let lightColor = (Math.floor(Date.now() / 300) % 3 === 0) ? "#e74c3c" : ((Math.floor(Date.now() / 300) % 3 === 1) ? "#f1c40f" : "#00ffff");
-    ctx.fillStyle = lightColor; ctx.beginPath(); ctx.arc(485, 190, 6, 0, Math.PI*2); ctx.fill();
 
-    // 3. PUNK-BAND (Über deinen Bühnenhintergrund gezeichnet)
+    // Punkband (Über Bühnenhintergrund gezeichnet)
     let bandY = 40 + Math.sin(Date.now() * 0.008) * 6;
     
     // Keyboarder
@@ -563,11 +579,11 @@ function renderGame() {
     ctx.fillStyle = "#3498db"; ctx.fillRect(380, bandY+20, 30, 25);
     ctx.fillStyle = "#6e2c00"; ctx.fillRect(360, bandY + 25, 45, 5); ctx.fillStyle = "#f1c40f"; ctx.fillRect(360, bandY + 23, 12, 8);
 
-    // 4. FLOATING ITEMS DESIGN
+    // Floating Items
     beers.forEach(b => {
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(b.x, b.y, b.width, 8); // Schaumkrone
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(b.x, b.y, b.width, 8); 
         ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x + 2, b.y + 8, b.width - 4, b.height - 8); 
-        ctx.fillStyle = "#d35400"; ctx.fillRect(b.x + 1, b.y + 12, 2, b.height - 16); // Henkel
+        ctx.fillStyle = "#d35400"; ctx.fillRect(b.x + 1, b.y + 12, 2, b.height - 16); 
     });
 
     giTos.forEach(g => {
@@ -580,7 +596,7 @@ function renderGame() {
     ctx.fillStyle = "#b45f06"; snacks.forEach(s => ctx.fillRect(s.x, s.y, s.width, s.height));
     ctx.fillStyle = "#f39c12"; pfuetzen.forEach(p => ctx.fillRect(p.x - 15, p.y - 3, 30, 6));
 
-    // 5. SPIELFIGUR JUSTUS
+    // Spielfigur Justus
     ctx.save();
     let curImg = player.isDrinking ? imgJustusSauft : imgJustus;
     if (curImg.complete && curImg.naturalWidth !== 0) {
@@ -593,7 +609,7 @@ function renderGame() {
     }
     ctx.restore();
 
-    // 6. DICKE URIN-STRAHL IN EDS SCHALL-LOCH (6 Pixel breit)
+    // Dicker Urinstrahl
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 6; ctx.beginPath();
         ctx.moveTo(player.x + player.width/2, player.y + 20); 
@@ -601,20 +617,20 @@ function renderGame() {
         ctx.stroke();
     }
 
-    // BLASEN-ALARM TEXT DIREKT ÜBER DER SPIELFIGUR
+    // Blasen-Alarm
     if (player.blase >= player.maxBlase) {
         ctx.fillStyle = (Math.floor(Date.now() / 200) % 2 === 0) ? "#e74c3c" : "#ffffff";
         ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
         ctx.fillText("!!! BLASE VOLL !!!", player.x + player.width / 2, player.y - 15);
     }
 
-    // 7. RENDERE KONFETTI-PARTIKEL (Bei 1000 Bieren)
+    // Konfetti-Partikel
     confettiParticles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.fillRect(p.x, p.y, p.size, p.size);
     });
 
-    // 8. STATUS BAR IN-GAME LEISTE
+    // UI Infoleiste
     ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0, 120, canvas.width, 45);
     ctx.fillStyle = "#fff"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "left";
     ctx.fillText(`Biere: ${player.biereGesoffen}`, 15, 147); ctx.fillText(`Verschüttet: ${player.verschuettet}/100`, 115, 147);
@@ -630,7 +646,7 @@ function renderGame() {
     if (player.doenerPowerActive) { ctx.fillStyle = "#e67e22"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("DÖNER POWER: UNENDLICH DURST!", canvas.width / 2, 195); }
     if (!gitoRoundActive && nextGitoRoundTimer < 300) { ctx.fillStyle = "#e74c3c"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`GiTo-RUNDE IN ${Math.ceil(nextGitoRoundTimer / 60)}...`, canvas.width / 2, 240); }
 
-    // 9. STEUERUNG INTERFACE
+    // Joystick Interface
     ctx.fillStyle = "#111"; ctx.fillRect(0, 780, canvas.width, 180);
     ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, joystick.maxRadius, 0, Math.PI * 2);
     ctx.fillStyle = "#222"; ctx.fill(); ctx.strokeStyle = "#444"; ctx.lineWidth = 3; ctx.stroke();
@@ -650,9 +666,8 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-// Start der Engine
 loadHighscores();
-audio.bgMenu.play().catch(e => console.log("Audio wartet auf Interaktion", e));
+safePlay(audio.bgMenu);
 requestAnimationFrame(gameLoop);
 
 </script>
