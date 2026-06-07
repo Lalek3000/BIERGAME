@@ -18,6 +18,12 @@
         #drink-btn:active { background: #2ecc71; }
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
+        
+        /* Neue CSS-Stile für die Charakter-Auswahl */
+        .char-container { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
+        .char-box { width: 100px; padding: 10px; background: #222; border: 2px solid #444; border-radius: 5px; cursor: pointer; text-align: center; font-size: 14px; font-weight: bold; }
+        .char-box.selected { border-color: #f1c40f; background: #333; }
+        #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
@@ -29,14 +35,29 @@
     <div id="menu-screen" class="ui-screen">
         <h1 style="font-size:26px; margin-bottom:5px; text-align:center;">MÄDCHENNAME MADEMANN</h1>
         <h2 style="font-size:20px; color:#f1c40f; margin-top:0; margin-bottom:40px; text-align:center;">DIE NACHT DER 1000 BIERE</h2>
-        <button id="btn-start" class="menu-btn">START</button>
-        <button id="btn-rules" class="menu-btn">SPIELREGELN</button>
+        
+        <!-- Standard-Buttons im Menü -->
+        <div id="main-menu-buttons">
+            <button id="btn-start" class="menu-btn">START</button>
+            <button id="btn-rules" class="menu-btn">SPIELREGELN</button>
+        </div>
+
+        <!-- Neuer Charakter-Auswahlbildschirm im Menü -->
+        <div id="char-selector-screen" style="display:none; text-align:center; width:100%;">
+            <h3 style="font-size:18px; color:#f1c40f; margin-bottom:15px;">WÄHLE DEINEN TRINKER</h3>
+            <div class="char-container">
+                <div id="char-mademann" class="char-box selected">Mademann</div>
+                <div id="char-olip" class="char-box">Oli P.</div>
+                <div id="char-alex" class="char-box">Alex</div>
+            </div>
+            <button id="btn-letsgo" class="menu-btn">LETS GO!</button>
+        </div>
+
         <div id="score-list">
             <h3 style="font-size:14px; color:#aaa; margin-bottom:10px;">=== LIVE TOP 5 HIGHSCORES ===</h3>
             <div id="highscores-container">Lade globale Highscores...</div>
         </div>
     </div>
-
     <!-- Spielregeln -->
     <div id="rules-screen" class="ui-screen" style="display:none;">
         <h2 style="font-size:22px; margin-bottom:20px;">SPIELREGELN</h2>
@@ -66,12 +87,12 @@
 
     <button id="drink-btn">TRINKEN</button>
 </div>
+
 <!-- Firebase v10 SDK Imports via jsDelivr CDN -->
 <script type="module">
     import { initializeApp } from "https://jsdelivr.net";
     import { getFirestore, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp } from "https://jsdelivr.net";
 
-    // Module global verfügbar machen, um Kapselungsfehler zu vermeiden
     window.fbModules = { collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp };
 
     const firebaseConfig = {
@@ -88,18 +109,14 @@
         const app = initializeApp(firebaseConfig);
         window.db = getFirestore(app);
         window.firebaseActive = true;
-        console.log("Firebase via jsDelivr erfolgreich gestartet!");
     } catch (e) {
-        console.log("Firebase-Blockade abgefangen. Lokal-Modus aktiv.", e);
         window.firebaseActive = false;
     }
 </script>
 
 <script>
-    // --- 1. GLOBALE VARIABLEN & ENGINE-SETUP ---
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-
     let gameState = "MENU";
     let keys = {};
     let highscores = [];
@@ -119,33 +136,42 @@
     const player = {
         x: 240, y: 540, width: 40, height: 64, speed: 320, vx: 0, vy: 0,
         biereGesoffen: 0, verschuettet: 0, durst: 100, blase: 0, maxBlase: 15,
-        isDrinking: false, drinkTimer: 0, doenerPowerActive: false, doenerTimer: 0, facing: 'right'
+        isDrinking: false, drinkTimer: 0, doenerPowerActive: false, doenerTimer: 0, facing: 'right',
+        character: 'mademann' 
     };
 
     const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
     const drinkButton = { x: 335, y: 845, radius: 45 };
 
+    // Musiklautstärke auf 30% (0.3) herabgesetzt
     const audio = {
         bgMenu: new Audio("backgroundmenu.mp3"),
         bgBierloch: new Audio("backgroundbierloch.mp3"),
         bgGito: new Audio("backgroundgito.mp3")
     };
-    Object.keys(audio).forEach(key => audio[key].volume = 0.4);
+    Object.keys(audio).forEach(key => audio[key].volume = 0.3);
     audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
 
-    function safePlay(audioObj) {
-        if (audioObj) {
-            audioObj.play().catch(() => console.log("Audio-Wiedergabe verzögert."));
-        }
-    }
+    function safePlay(audioObj) { if (audioObj) { audioObj.play().catch(() => {}); } }
 
     const imgBackground = new Image(); imgBackground.src = 'hintergrund.png';
-    const imgJustus = new Image(); imgJustus.src = 'justus.png';
-    const imgJustusSauft = new Image(); imgJustusSauft.src = 'justussauft.png';
     const imgEd = new Image(); imgEd.src = 'Ed.png';
+
+    // Bild-Zuordnung für alle drei Charaktere
+    const characters = {
+        mademann: { normal: new Image(), sauft: new Image() },
+        olip: { normal: new Image(), sauft: new Image() },
+        alex: { normal: new Image(), sauft: new Image() }
+    };
+    characters.mademann.normal.src = 'justus.png';
+    characters.mademann.sauft.src = 'justussauft.png';
+    characters.olip.normal.src = 'oli.png';
+    characters.olip.sauft.src = 'olisauft.png';
+    characters.alex.normal.src = 'alex.png';
+    characters.alex.sauft.src = 'alexsauft.png';
     // --- 2. SOUND-SYNTHESE (WEB AUDIO API) ---
     const AudioSynth = {
-        ctx: null, urinInterval: null,
+        ctx: null, urinInterval: null, urinStep: 0,
         init() {
             if (!this.ctx) {
                 try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
@@ -178,21 +204,25 @@
                 osc.start(); osc.stop(this.ctx.currentTime + 0.25);
             } catch (e) {}
         },
+        // Modulierter Retro-Klosound im Stil von Pacman
         startUrin() {
             this.init(); if (!this.ctx || this.urinInterval) return;
+            this.urinStep = 0;
             try {
                 this.urinInterval = setInterval(() => {
                     if (!this.ctx || this.ctx.state === 'suspended') return;
-                    let bufferSize = this.ctx.sampleRate * 0.05, buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                    let data = buffer.getChannelData(0);
-                    for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-                    let noise = this.ctx.createBufferSource(); noise.buffer = buffer;
-                    let filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(400 + Math.random() * 150, this.ctx.currentTime);
-                    let gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-                    noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-                    noise.start();
-                }, 40);
+                    let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.type = 'triangle';
+                    
+                    let freq = 250 + Math.sin(this.urinStep * 0.8) * 100;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+                    this.urinStep++;
+                }, 80);
             } catch (e) {}
         },
         stopUrin() { if (this.urinInterval) { clearInterval(this.urinInterval); this.urinInterval = null; } }
@@ -250,10 +280,39 @@
     const scrRules = document.getElementById("rules-screen");
     const scrGameOver = document.getElementById("gameover-screen");
     const btnDrink = document.getElementById("drink-btn");
+    
+    const mainMenuButtons = document.getElementById("main-menu-buttons");
+    const charSelectorScreen = document.getElementById("char-selector-screen");
+    const btnLetsGo = document.getElementById("btn-letsgo");
 
+    // Start-Button wechselt zur Charakterauswahl
     document.getElementById("btn-start").addEventListener("click", () => {
-        AudioSynth.init(); scrMenu.style.display = "none"; btnDrink.style.display = "flex"; startGame();
+        AudioSynth.init();
+        mainMenuButtons.style.display = "none";
+        charSelectorScreen.style.display = "block";
+        btnLetsGo.style.display = "flex";
     });
+
+    // Klick-Logik für die drei Charaktere
+    const boxes = { mademann: document.getElementById("char-mademann"), olip: document.getElementById("char-olip"), alex: document.getElementById("char-alex") };
+    Object.keys(boxes).forEach(key => {
+        boxes[key].addEventListener("click", () => {
+            Object.values(boxes).forEach(box => box.classList.remove("selected"));
+            boxes[key].classList.add("selected");
+            player.character = key;
+        });
+    });
+
+    // Lets Go startet das eigentliche Gameplay
+    btnLetsGo.addEventListener("click", () => {
+        scrMenu.style.display = "none";
+        mainMenuButtons.style.display = "block";
+        charSelectorScreen.style.display = "none";
+        btnLetsGo.style.display = "none";
+        btnDrink.style.display = "flex";
+        startGame();
+    });
+
     document.getElementById("btn-rules").addEventListener("click", () => {
         AudioSynth.init(); scrMenu.style.display = "none"; scrRules.style.display = "flex";
     });
@@ -275,14 +334,11 @@
                 const m = window.fbModules;
                 const q = m.query(m.collection(window.db, "highscores"), m.orderBy("score", "desc"), m.limit(5));
                 const snapshot = await m.getDocs(q);
-                highscores = [];
-                container.innerHTML = "";
+                highscores = []; container.innerHTML = "";
                 snapshot.forEach(doc => { highscores.push(doc.data()); });
                 if (highscores.length === 0) { container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>"; }
                 else { highscores.forEach((hs, idx) => { container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`; }); }
-            } catch (err) {
-                loadLocalHighscoresFallback(container);
-            }
+            } catch (err) { loadLocalHighscoresFallback(container); }
         } else { loadLocalHighscoresFallback(container); }
     }
 
@@ -299,13 +355,10 @@
                 let name = prompt("Du hast die TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
                 if (!name) name = "ANONYM";
                 let cleanName = name.toUpperCase().slice(0, 12);
-                
                 if (window.firebaseActive && window.db) {
                     try {
                         const m = window.fbModules;
-                        await m.addDoc(m.collection(window.db, "highscores"), {
-                            name: cleanName, score: player.biereGesoffen, timestamp: m.serverTimestamp()
-                        });
+                        await m.addDoc(m.collection(window.db, "highscores"), { name: cleanName, score: player.biereGesoffen, timestamp: m.serverTimestamp() });
                         loadHighscores();
                     } catch(e) { saveLocalScore(cleanName); }
                 } else { saveLocalScore(cleanName); }
@@ -461,6 +514,7 @@
             if (d.y > canvas.height - 180) doeners.splice(i, 1);
         }
         for (let i = snacks.length - 1; i >= 0; i--) {
+            // FIXED: Reduziert den "Durst-Balken" (was logisch "Trink-Kapazität schaffen" bedeutet) um 25 Punkte
             if (checkHit(snacks[i])) { player.durst = Math.max(0, player.durst - 25); snacks.splice(i, 1); }
         }
         for (let i = confettiParticles.length - 1; i >= 0; i--) {
@@ -533,13 +587,17 @@
         ctx.fillStyle = "#f39c12"; pfuetzen.forEach(p => ctx.fillRect(p.x - 15, p.y - 3, 30, 6));
 
         ctx.save();
-        let curImg = player.isDrinking ? imgJustusSauft : imgJustus;
+        // Dynamischer Bildwechsel für die Mund-Animation (Auf/Zu im Takt der Loops)
+        let activeChar = characters[player.character];
+        let useMouthOpen = player.isDrinking || (Math.floor(nowTime / 250) % 2 === 0);
+        let curImg = useMouthOpen ? activeChar.sauft : activeChar.normal;
+
         if (curImg.complete && curImg.naturalWidth !== 0) {
             if (player.facing === 'left') { ctx.translate(player.x + player.width, player.y); ctx.scale(-1, 1); ctx.drawImage(curImg, 0, 0, player.width, player.height); }
             else { ctx.drawImage(curImg, player.x, player.y, player.width, player.height); }
         } else {
             ctx.fillStyle = player.isDrinking ? "#2ecc71" : "#34495e"; ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.fillStyle = "#fff"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(player.isDrinking ? "TRINKT" : "JUSTUS", player.x + player.width/2, player.y + 30);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(player.character.toUpperCase(), player.x + player.width/2, player.y + 30);
         }
         ctx.restore();
 
@@ -581,7 +639,6 @@
         requestAnimationFrame(gameLoop);
     }
 
-    // Initialer Startbefehl
     loadHighscores(); 
     safePlay(audio.bgMenu); 
     requestAnimationFrame(gameLoop);
