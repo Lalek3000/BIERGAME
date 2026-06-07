@@ -98,10 +98,11 @@ if (typeof firebase !== 'undefined') {
     }
 }
 
-// --- [FIX: HIER WERDEN CANVAS UND KEYS FORMAL DEFINIERT!] ---
+// --- [FIX: HIER WERDEN CANVAS, KEYS UND GAMESTATE FORMAL DEFINIERT!] ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let keys = {};
+let gameState = "MENU"; // Repariert den Absturz in der Hauptschleife!
 
 // --- 2. ABSTURZSICHERER AUDIO SYNTHESIZER ---
 const AudioSynth = {
