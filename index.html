@@ -790,7 +790,6 @@
         if (player.doenerPowerActive) { ctx.fillStyle = "#e67e22"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("DÖNER POWER: UNENDLICH DURST!", canvas.width / 2, 195); }
         if (!gitoRoundActive && nextGitoRoundTimer < 300) { ctx.fillStyle = "#e74c3c"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`GiTo-RUNDE IN ${Math.ceil(nextGitoRoundTimer / 60)}...`, canvas.width / 2, 240); }
 
-        ctx.fillStyle = "#111"; ctx.fillRect(0, 780, canvas.width, 180);
         ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, joystick.maxRadius, 0, Math.PI * 2);
         ctx.fillStyle = "#222"; ctx.fill(); ctx.strokeStyle = "#444"; ctx.lineWidth = 3; ctx.stroke();
         ctx.beginPath(); ctx.arc(joystick.currentX, joystick.currentY, 22, 0, Math.PI * 2); ctx.fillStyle = "#e74c3c"; ctx.fill();
