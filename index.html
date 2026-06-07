@@ -36,7 +36,7 @@
         <button id="btn-rules" class="menu-btn">SPIELREGELN</button>
         <div id="score-list">
             <h3 style="font-size:16px; color:#aaa; margin-bottom:10px;">=== LIVE TOP 5 HIGHSCORES ===</h3>
-            <div id="highscores-container"></div>
+            <div id="highscores-container">Lade globale Highscores...</div>
         </div>
     </div>
 
@@ -46,7 +46,7 @@
         <div id="rules-text">
             • <b>Ziel:</b> Trinke 1000 Biere für ein Gratis-Ticket!<br><br>
             • <b>Steuerung:</b> WASD / Pfeiltasten oder Smartphone-Joystick unten links.<br><br>
-            • <b>Saufen:</b> LEERTASTE drücken oder rechts auf TRINKEN tippen.<br><br>
+            • <b>Saufen:</b> LEERTASTE drücken oder rechts auf TRINKEN tippen. **Dauertippen verlängert den Modus!**<br><br>
             • <b>Durst:</b> Lädt sich zügig auf. Trinken kostet Durst. Ist der Balken leer, saugst du Luft.<br><br>
             • <b>Blase:</b> Jedes Getränk füllt die Blase. Nach 15 Drinks ist sie randvoll!<br><br>
             • <b>Klo-Flucht:</b> Eine volle Blase lässt dich extrem wellenartig taumeln! Fliehe nach ganz unten links in das Klo zu Ed Sheeran, um in seine Akustikgitarre zu pinkeln!<br><br>
@@ -73,21 +73,20 @@
 </div>
 
 <script>
-// --- 1. GLOBALE VARIABLEN & FIREBASE DEKLARATION ---
+// --- 1. GLOBALE VARIABLEN & FIREBASE CONFIG ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let gameState = "MENU"; // Zentrale Spielzustand-Steuerung
+let gameState = "MENU";
 let keys = {};
 let highscores = [];
 let beers = [], giTos = [], doeners = [], snacks = [], pfuetzen = [];
 
-// Zeit-Taktung (Delta Time) für synchrones Tempo auf jedem Gerät
+// Zeit-Taktung (Delta Time)
 let lastTime = performance.now();
 const TARGET_FPS = 60;
 const FRAME_DURATION = 1000 / TARGET_FPS;
 
-// Ingame-Timer
 let beerSpawnTimer = 0, nextGitoRoundTimer = 1800, gitoRoundTimer = 0, gitoRoundActive = false;
 let nextDoenerTimer = 7200, colorShiftIdx = 0;
 
@@ -95,7 +94,6 @@ let milestoneTimer = 0, milestoneEffectActive = false;
 let milestoneColors = ["#8e44ad", "#27ae60", "#2980b9", "#f39c12", "#e74c3c", "#16a085"];
 let confettiParticles = [];
 
-// Spielfigur & Interface-Koordinaten
 const player = {
     x: 240, y: 540, width: 40, height: 64, speed: 320, vx: 0, vy: 0,
     biereGesoffen: 0, verschuettet: 0, durst: 100, blase: 0, maxBlase: 15,
@@ -105,7 +103,6 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
-// MP3-Medien laden (Halbierte Lautstärke)
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -231,10 +228,13 @@ function handleTouch(touches) {
         }
     }
 }
+
+// [FIX: Erlaubt das erneute Auslösen/Verlängern während des Trinkens!]
 function tryDrink() {
     if (gameState !== "PLAYING") return;
-    if (!player.isDrinking && player.durst >= 15) {
-        player.isDrinking = true; player.drinkTimer = 60;
+    if (player.durst >= 15) {
+        player.isDrinking = true;
+        player.drinkTimer = 60; // Setzt den Timer einfach wieder auf das Maximum hoch
         if (!player.doenerPowerActive) player.durst -= 15;
     }
 }
