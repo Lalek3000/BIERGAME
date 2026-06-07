@@ -319,9 +319,17 @@
     const charSelectorScreen = document.getElementById("char-selector-screen");
     const btnLetsGo = document.getElementById("btn-letsgo");
 
-    document.getElementById("btn-start").addEventListener("click", () => {
+    // Berechtigt das Smartphone, alle Musikdateien im Hintergrund abzuspielen
+    function unlockMobileAudio() {
         AudioSynth.init();
-        safePlay(audio.bgMenu); 
+        Object.keys(audio).forEach(key => {
+            audio[key].play().then(() => { audio[key].pause(); }).catch(() => {});
+        });
+    }
+
+    document.getElementById("btn-start").addEventListener("click", () => {
+        unlockMobileAudio();
+        playTrack('bgMenu'); 
         mainMenuButtons.style.display = "none";
         charSelectorScreen.style.display = "block";
         btnLetsGo.style.display = "flex";
@@ -330,8 +338,8 @@
     const boxes = { mademann: document.getElementById("char-mademann"), olip: document.getElementById("char-olip"), alex: document.getElementById("char-alex") };
     Object.keys(boxes).forEach(key => {
         boxes[key].addEventListener("click", () => {
-            AudioSynth.init();
-            safePlay(audio.bgMenu);
+            unlockMobileAudio();
+            playTrack('bgMenu');
             Object.values(boxes).forEach(box => box.classList.remove("selected"));
             boxes[key].classList.add("selected");
             player.character = key;
@@ -348,7 +356,7 @@
     });
 
     document.getElementById("btn-rules").addEventListener("click", () => {
-        AudioSynth.init(); safePlay(audio.bgMenu); scrMenu.style.display = "none"; scrRules.style.display = "flex";
+        unlockMobileAudio(); playTrack('bgMenu'); scrMenu.style.display = "none"; scrRules.style.display = "flex";
     });
     document.getElementById("btn-back").addEventListener("click", () => {
         scrRules.style.display = "none"; scrMenu.style.display = "flex";
