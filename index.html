@@ -98,6 +98,11 @@ if (typeof firebase !== 'undefined') {
     }
 }
 
+// --- [FIX: HIER WERDEN CANVAS UND KEYS FORMAL DEFINIERT!] ---
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let keys = {};
+
 // --- 2. ABSTURZSICHERER AUDIO SYNTHESIZER ---
 const AudioSynth = {
     ctx: null,
@@ -207,7 +212,6 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
-// [Befehl umgesetzt: ruelps.mp3 gelöscht, um Konsolenfehler zu bannen]
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -225,6 +229,7 @@ function safePlay(audioObj) {
 const imgBackground = new Image(); imgBackground.src = 'hintergrund.png';
 const imgJustus = new Image(); imgJustus.src = 'justus.png';
 const imgJustusSauft = new Image(); imgJustusSauft.src = 'justussauft.png';
+
 // --- DOM ELEMENTE & INTERAKTIONEN ---
 const scrMenu = document.getElementById("menu-screen");
 const scrRules = document.getElementById("rules-screen");
