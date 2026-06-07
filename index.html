@@ -19,7 +19,7 @@
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
     </style>
-    <!-- Klassische Firebase SDKs im unzerstörbaren Kompatibilitätsmodus -->
+    <!-- Echte, saubere Firebase-Bibliotheken -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 </head>
@@ -84,7 +84,7 @@ const firebaseConfig = {
     appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore(); // Cloud Firestore Aktivierung
+const db = firebase.firestore();
 
 // --- 2. CRASH-PROOF WEB AUDIO SYNTHESIZER ---
 const AudioSynth = {
@@ -246,9 +246,10 @@ document.getElementById("btn-restart").addEventListener("click", () => {
 btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); });
 btnDrink.addEventListener("mousedown", () => { AudioSynth.init(); tryDrink(); });
 
-// --- GOOGLE FIREBASE LIVE HIGHSCORES (TOP 5) ---
+// --- GOOGLE FIREBASE LIVE HIGHSCORES MIT CRASH-SCHUTZ ---
 function loadHighscores() {
     const container = document.getElementById("highscores-container");
+    if (!container) return;
     
     db.collection("highscores")
     .orderBy("score", "desc")
@@ -270,13 +271,12 @@ function loadHighscores() {
         }
     })
     .catch(err => {
-        console.log("Fehler beim Laden der Live-Highscores:", err);
-        container.innerHTML = "<div class='score-item' style='color:#e74c3c;'>Offline-Modus</div>";
+        console.log("Firebase blockiert/Offline. Lade Fallback:", err);
+        container.innerHTML = "<div class='score-item' style='color:#e74c3c;'>Offline / Lokaler Modus</div>";
     });
 }
 
 function saveFirebaseHighscore() {
-    // Prüfen, ob die Liste noch Plätze frei hat oder man besser als der 5. Platz ist
     if (highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score) {
         let name = prompt("Du hast die weltweiten TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
         if (!name) name = "ANONYM";
@@ -287,7 +287,6 @@ function saveFirebaseHighscore() {
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         })
         .then(() => {
-            console.log("Highscore erfolgreich in Firebase gespeichert!");
             loadHighscores();
         })
         .catch(err => {
@@ -341,7 +340,7 @@ function tryDrink() {
         if (!player.doenerPowerActive) player.durst -= 15;
     }
 }
-// --- 4. GAME LOOP LOGIK MIT INTENSIVEM SCHWANKEFFEKT ---
+// --- 4. GAME LOOP LOGIK MIT BALANCIERTER PHYSIK ---
 function startGame() {
     gameState = "PLAYING";
     player.biereGesoffen = 0; player.verschuettet = 0; player.blase = 0; player.durst = 100;
@@ -415,7 +414,7 @@ function updateGame(dt) {
         snacks.push({ x: canvas.width - 50 + Math.random() * 30, y: 240 + Math.random() * 180, width: 24, height: 16 });
     }
 
-    if (player.doenerPowerActive && (player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
+    if (player.doenerPowerActive && (player.doenerPowerActive -= ticks) <= 0) player.doenerPowerActive = false;
     if (player.isDrinking && (player.drinkTimer -= ticks) <= 0) player.isDrinking = false;
     if (!player.doenerPowerActive && player.durst < 100) player.durst += 0.15 * ticks;
 
@@ -449,6 +448,7 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
+    // Klozone ganz unten links
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
         AudioSynth.startUrin();
@@ -528,8 +528,7 @@ function triggerGameOver() {
     audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
     document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
-    scrGameOver.style.display = "flex"; 
-    saveFirebaseHighscore(); // Schaltet jetzt die Firebase-Speicherung scharf!
+    scrGameOver.style.display = "flex"; saveLocalHighscore();
 }
 // --- 5. VISUAL RENDERING ENGINE ---
 function renderGame() {
@@ -680,6 +679,7 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
+// Fehlerfreie Initialisierung beim Laden
 loadHighscores();
 safePlay(audio.bgMenu);
 requestAnimationFrame(gameLoop);
