@@ -132,13 +132,29 @@
     const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
     const drinkButton = { x: 335, y: 845, radius: 45 };
 
-    const audio = {
+        const audio = {
         bgMenu: new Audio("backgroundmenu.mp3"),
         bgBierloch: new Audio("backgroundbierloch.mp3"),
         bgGito: new Audio("backgroundgito.mp3")
     };
     Object.keys(audio).forEach(key => audio[key].volume = 0.3);
     audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
+
+    // Mobile-Sicherheitsfunktion für Musikwechsel
+    function playTrack(trackKey) {
+        // Stoppe alle anderen Tracks komplett und setze sie zurück
+        Object.keys(audio).forEach(key => {
+            if (key !== trackKey) {
+                audio[key].pause();
+            }
+        });
+        // Starte den gewünschten Track frisch
+        if (audio[trackKey]) {
+            audio[trackKey].currentTime = 0;
+            audio[trackKey].load(); // Zwingt mobile Browser, den Stream neu zu binden
+            audio[trackKey].play().catch(e => console.log("Musik-Wechsel blockiert:", e));
+        }
+    }
 
     function safePlay(audioObj) { if (audioObj) { audioObj.play().catch(() => {}); } }
 
