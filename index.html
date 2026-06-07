@@ -19,6 +19,9 @@
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
     </style>
+    <!-- Klassische Firebase SDKs im unzerstörbaren Kompatibilitätsmodus -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -32,7 +35,7 @@
         <button id="btn-start" class="menu-btn">START</button>
         <button id="btn-rules" class="menu-btn">SPIELREGELN</button>
         <div id="score-list">
-            <h3 style="font-size:16px; color:#aaa; margin-bottom:10px;">=== TOP 5 HIGHSCORES ===</h3>
+            <h3 style="font-size:16px; color:#aaa; margin-bottom:10px;">=== LIVE TOP 5 HIGHSCORES ===</h3>
             <div id="highscores-container"></div>
         </div>
     </div>
@@ -70,7 +73,20 @@
 </div>
 
 <script>
-// --- CRASH-PROOF WEB AUDIO SYNTHESIZER ---
+// --- 1. FIREBASE SETUP & INITIALISIERUNG (EXAKT NACH DEINEM INPUT) ---
+const firebaseConfig = {
+    apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
+    authDomain: "://firebaseapp.com",
+    databaseURL: "https://firebasedatabase.app",
+    projectId: "biere-handygame",
+    storageBucket: "biere-handygame.firebasestorage.app",
+    messagingSenderId: "706208794774",
+    appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore(); // Cloud Firestore Aktivierung
+
+// --- 2. CRASH-PROOF WEB AUDIO SYNTHESIZER ---
 const AudioSynth = {
     ctx: null,
     urinInterval: null,
@@ -80,10 +96,9 @@ const AudioSynth = {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             } catch (e) {
-                console.log("Web Audio API wird nicht unterstützt:", e);
+                console.log("Web Audio API blockiert:", e);
             }
         }
-        // Reaktivierung falls im suspendierten Zustand (Browser-Schutz)
         if (this.ctx && this.ctx.state === 'suspended') {
             this.ctx.resume().catch(e => console.log(e));
         }
@@ -97,19 +112,14 @@ const AudioSynth = {
             let gain = this.ctx.createGain();
             osc.connect(gain);
             gain.connect(this.ctx.destination);
-
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(150, this.ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
-
             gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
             gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-
             osc.start();
             osc.stop(this.ctx.currentTime + 0.15);
-        } catch (e) {
-            console.log("Fehler bei Drink-Audio-Synthese:", e);
-        }
+        } catch (e) { console.log(e); }
     },
 
     playSpill() {
@@ -120,19 +130,14 @@ const AudioSynth = {
             let gain = this.ctx.createGain();
             osc.connect(gain);
             gain.connect(this.ctx.destination);
-
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(400, this.ctx.currentTime);
             osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.25);
-
             gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
             gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
-
             osc.start();
             osc.stop(this.ctx.currentTime + 0.25);
-        } catch (e) {
-            console.log("Fehler bei Spill-Audio-Synthese:", e);
-        }
+        } catch (e) { console.log(e); }
     },
 
     startUrin() {
@@ -144,29 +149,20 @@ const AudioSynth = {
                 let bufferSize = this.ctx.sampleRate * 0.05;
                 let buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                 let data = buffer.getChannelData(0);
-                
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
-
+                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
                 let noise = this.ctx.createBufferSource();
                 noise.buffer = buffer;
-
                 let filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass';
                 filter.frequency.setValueAtTime(400 + Math.random() * 150, this.ctx.currentTime);
-
                 let gain = this.ctx.createGain();
                 gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-
                 noise.connect(filter);
                 filter.connect(gain);
                 gain.connect(this.ctx.destination);
                 noise.start();
             }, 40);
-        } catch (e) {
-            console.log("Fehler bei Urin-Audio-Synthese:", e);
-        }
+        } catch (e) { console.log(e); }
     },
 
     stopUrin() {
@@ -177,7 +173,7 @@ const AudioSynth = {
     }
 };
 
-// --- CORE ENGINE SETUP ---
+// --- 3. CORE ENGINE SETUP & VARIABLEN ---
 let lastTime = performance.now();
 const TARGET_FPS = 60;
 const FRAME_DURATION = 1000 / TARGET_FPS;
@@ -188,7 +184,6 @@ let nextDoenerTimer = 7200, colorShiftIdx = 0;
 let milestoneTimer = 0;
 let milestoneEffectActive = false;
 let milestoneColors = ["#8e44ad", "#27ae60", "#2980b9", "#f39c12", "#e74c3c", "#16a085"];
-
 let confettiParticles = [];
 
 const player = {
@@ -200,7 +195,6 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
-// MP3-Audios (Werden fehlertolerant via Methode geladen, um Promises-Abstürze im Keim zu ersticken)
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -210,10 +204,9 @@ const audio = {
 Object.keys(audio).forEach(key => audio[key].volume = 0.5);
 audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
 
-// Hilfsfunktion zum sicheren, absturzfreien Abspielen von MP3s
 function safePlay(audioObj) {
     if (audioObj) {
-        audioObj.play().catch(e => console.log("Autoplay blockiert oder Datei fehlt. Spiel läuft ungestört weiter:", e.message));
+        audioObj.play().catch(e => console.log("Audio wartet auf Klick:", e.message));
     }
 }
 
@@ -227,7 +220,7 @@ const scrGameOver = document.getElementById("gameover-screen");
 const btnDrink = document.getElementById("drink-btn");
 
 document.getElementById("btn-start").addEventListener("click", () => {
-    AudioSynth.init(); // Schützt vor Browser-Blockaden bei Spielstart
+    AudioSynth.init();
     scrMenu.style.display = "none";
     btnDrink.style.display = "flex";
     startGame();
@@ -253,36 +246,59 @@ document.getElementById("btn-restart").addEventListener("click", () => {
 btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); });
 btnDrink.addEventListener("mousedown", () => { AudioSynth.init(); tryDrink(); });
 
-// --- LOCAL STORAGE HIGHSCORES (TOP 5) ---
+// --- GOOGLE FIREBASE LIVE HIGHSCORES (TOP 5) ---
 function loadHighscores() {
-    highscores = JSON.parse(localStorage.getItem("mademann_highscores")) || [];
     const container = document.getElementById("highscores-container");
-    container.innerHTML = "";
-    if (highscores.length === 0) {
-        container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>";
-    } else {
-        highscores.forEach((hs, idx) => {
-            container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`;
+    
+    db.collection("highscores")
+    .orderBy("score", "desc")
+    .limit(5)
+    .get()
+    .then(snapshot => {
+        highscores = [];
+        container.innerHTML = "";
+        snapshot.forEach(doc => {
+            highscores.push(doc.data());
+        });
+        
+        if (highscores.length === 0) {
+            container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>";
+        } else {
+            highscores.forEach((hs, idx) => {
+                container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`;
+            });
+        }
+    })
+    .catch(err => {
+        console.log("Fehler beim Laden der Live-Highscores:", err);
+        container.innerHTML = "<div class='score-item' style='color:#e74c3c;'>Offline-Modus</div>";
+    });
+}
+
+function saveFirebaseHighscore() {
+    // Prüfen, ob die Liste noch Plätze frei hat oder man besser als der 5. Platz ist
+    if (highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score) {
+        let name = prompt("Du hast die weltweiten TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
+        if (!name) name = "ANONYM";
+        
+        db.collection("highscores").add({
+            name: name.toUpperCase().slice(0, 12),
+            score: player.biereGesoffen,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(() => {
+            console.log("Highscore erfolgreich in Firebase gespeichert!");
+            loadHighscores();
+        })
+        .catch(err => {
+            console.log("Fehler beim Sichern des Highscores:", err);
         });
     }
 }
 
-function saveLocalHighscore() {
-    let localScores = JSON.parse(localStorage.getItem("mademann_highscores")) || [];
-    if (localScores.length < 5 || player.biereGesoffen > localScores[localScores.length - 1].score) {
-        let name = prompt("Du bist in den TOP 5 gelandet! Trage deinen Namen ein:", "SAUFBOLZEN");
-        if (!name) name = "ANONYM";
-        localScores.push({ name: name.toUpperCase().slice(0, 12), score: player.biereGesoffen });
-        localScores.sort((a, b) => b.score - a.score);
-        localScores = localScores.slice(0, 5);
-        localStorage.setItem("mademann_highscores", JSON.stringify(localScores));
-    }
-    highscores = localScores;
-}
-
 // --- CONTROLS INPUT SYSTEM ---
 window.addEventListener('keydown', e => {
-    AudioSynth.init(); // Aktiviert Audio-Kontext bei Tastendruck
+    AudioSynth.init();
     keys[e.key] = true;
     if (e.key === ' ' || e.key === 'Spacebar') tryDrink();
 });
@@ -325,7 +341,7 @@ function tryDrink() {
         if (!player.doenerPowerActive) player.durst -= 15;
     }
 }
-// --- 4. GAME LOOP LOGIK MIT UTILITY SOUND-TRIGGERS ---
+// --- 4. GAME LOOP LOGIK MIT INTENSIVEM SCHWANKEFFEKT ---
 function startGame() {
     gameState = "PLAYING";
     player.biereGesoffen = 0; player.verschuettet = 0; player.blase = 0; player.durst = 100;
@@ -368,8 +384,7 @@ function updateGame(dt) {
         nextGitoRoundTimer -= ticks;
         if (nextGitoRoundTimer <= 0) {
             gitoRoundActive = true; gitoRoundTimer = 480;
-            audio.bgBierloch.pause(); 
-            audio.bgGito.currentTime = 0; 
+            audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; 
             safePlay(audio.bgGito);
         }
     }
@@ -385,8 +400,7 @@ function updateGame(dt) {
         }
         if (gitoRoundTimer <= 0) {
             gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60;
-            audio.bgGito.pause(); 
-            audio.bgBierloch.currentTime = 0;
+            audio.bgGito.pause(); audio.bgBierloch.currentTime = 0;
             safePlay(audio.bgBierloch);
         }
     }
@@ -435,7 +449,6 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
-    // KLOZONE GANZ UNTEN LINKS PLATZIERT (X < 110, Y zwischen 620 und 780)
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
         AudioSynth.startUrin();
@@ -515,7 +528,8 @@ function triggerGameOver() {
     audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
     document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
-    scrGameOver.style.display = "flex"; saveLocalHighscore();
+    scrGameOver.style.display = "flex"; 
+    saveFirebaseHighscore(); // Schaltet jetzt die Firebase-Speicherung scharf!
 }
 // --- 5. VISUAL RENDERING ENGINE ---
 function renderGame() {
