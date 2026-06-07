@@ -19,11 +19,12 @@
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
         
-        /* Neue CSS-Stile für die Charakter-Auswahl */
         .char-container { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
         .char-box { width: 100px; padding: 10px; background: #222; border: 2px solid #444; border-radius: 5px; cursor: pointer; text-align: center; font-size: 14px; font-weight: bold; }
         .char-box.selected { border-color: #f1c40f; background: #333; }
-        #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; }
+        
+        /* Zentrierter LETS GO Button */
+        #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; margin: 20px auto 0 auto; }
     </style>
 </head>
 <body>
@@ -31,18 +32,15 @@
 <div id="game-container">
     <canvas id="gameCanvas" width="540" height="960"></canvas>
     
-    <!-- Hauptmenü -->
     <div id="menu-screen" class="ui-screen">
         <h1 style="font-size:26px; margin-bottom:5px; text-align:center;">MÄDCHENNAME MADEMANN</h1>
         <h2 style="font-size:20px; color:#f1c40f; margin-top:0; margin-bottom:40px; text-align:center;">DIE NACHT DER 1000 BIERE</h2>
         
-        <!-- Standard-Buttons im Menü -->
         <div id="main-menu-buttons">
             <button id="btn-start" class="menu-btn">START</button>
             <button id="btn-rules" class="menu-btn">SPIELREGELN</button>
         </div>
 
-        <!-- Neuer Charakter-Auswahlbildschirm im Menü -->
         <div id="char-selector-screen" style="display:none; text-align:center; width:100%;">
             <h3 style="font-size:18px; color:#f1c40f; margin-bottom:15px;">WÄHLE DEINEN TRINKER</h3>
             <div class="char-container">
@@ -133,8 +131,9 @@
     let milestoneColors = ["#8e44ad", "#27ae60", "#2980b9", "#f39c12", "#e74c3c", "#16a085"];
     let confettiParticles = [];
 
+    // Maße der Figur um 20% vergrößert (width: 48, height: 76.8)
     const player = {
-        x: 240, y: 540, width: 40, height: 64, speed: 320, vx: 0, vy: 0,
+        x: 240, y: 540, width: 48, height: 76.8, speed: 320, vx: 0, vy: 0,
         biereGesoffen: 0, verschuettet: 0, durst: 100, blase: 0, maxBlase: 15,
         isDrinking: false, drinkTimer: 0, doenerPowerActive: false, doenerTimer: 0, facing: 'right',
         character: 'mademann' 
@@ -143,7 +142,6 @@
     const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
     const drinkButton = { x: 335, y: 845, radius: 45 };
 
-    // Musiklautstärke auf 30% (0.3) herabgesetzt
     const audio = {
         bgMenu: new Audio("backgroundmenu.mp3"),
         bgBierloch: new Audio("backgroundbierloch.mp3"),
@@ -157,7 +155,6 @@
     const imgBackground = new Image(); imgBackground.src = 'hintergrund.png';
     const imgEd = new Image(); imgEd.src = 'Ed.png';
 
-    // Bild-Zuordnung für alle drei Charaktere
     const characters = {
         mademann: { normal: new Image(), sauft: new Image() },
         olip: { normal: new Image(), sauft: new Image() },
@@ -204,7 +201,6 @@
                 osc.start(); osc.stop(this.ctx.currentTime + 0.25);
             } catch (e) {}
         },
-        // Modulierter Retro-Klosound im Stil von Pacman
         startUrin() {
             this.init(); if (!this.ctx || this.urinInterval) return;
             this.urinStep = 0;
@@ -214,12 +210,10 @@
                     let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
                     osc.connect(gain); gain.connect(this.ctx.destination);
                     osc.type = 'triangle';
-                    
                     let freq = 250 + Math.sin(this.urinStep * 0.8) * 100;
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                     gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
                     gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-                    
                     osc.start(); osc.stop(this.ctx.currentTime + 0.08);
                     this.urinStep++;
                 }, 80);
@@ -248,12 +242,10 @@
         let rect = canvas.getBoundingClientRect();
         let scaleX = canvas.width / rect.width;
         let scaleY = canvas.height / rect.height;
-
         for (let i = 0; i < touches.length; i++) {
             let tx = (touches[i].clientX - rect.left) * scaleX;
             let ty = (touches[i].clientY - rect.top) * scaleY;
             let distToJoy = Math.sqrt((tx - joystick.startX) ** 2 + (ty - joystick.startY) ** 2);
-            
             if (joystick.active || distToJoy < joystick.maxRadius * 2.5) {
                 joystick.active = true;
                 let angle = Math.atan2(ty - joystick.startY, tx - joystick.startX);
@@ -285,7 +277,6 @@
     const charSelectorScreen = document.getElementById("char-selector-screen");
     const btnLetsGo = document.getElementById("btn-letsgo");
 
-    // Start-Button wechselt zur Charakterauswahl
     document.getElementById("btn-start").addEventListener("click", () => {
         AudioSynth.init();
         mainMenuButtons.style.display = "none";
@@ -293,7 +284,6 @@
         btnLetsGo.style.display = "flex";
     });
 
-    // Klick-Logik für die drei Charaktere
     const boxes = { mademann: document.getElementById("char-mademann"), olip: document.getElementById("char-olip"), alex: document.getElementById("char-alex") };
     Object.keys(boxes).forEach(key => {
         boxes[key].addEventListener("click", () => {
@@ -303,7 +293,6 @@
         });
     });
 
-    // Lets Go startet das eigentliche Gameplay
     btnLetsGo.addEventListener("click", () => {
         scrMenu.style.display = "none";
         mainMenuButtons.style.display = "block";
@@ -514,8 +503,8 @@
             if (d.y > canvas.height - 180) doeners.splice(i, 1);
         }
         for (let i = snacks.length - 1; i >= 0; i--) {
-            // FIXED: Reduziert den "Durst-Balken" (was logisch "Trink-Kapazität schaffen" bedeutet) um 25 Punkte
-            if (checkHit(snacks[i])) { player.durst = Math.max(0, player.durst - 25); snacks.splice(i, 1); }
+            // SNACK FIX: Erhöht das Durst-Level sauber um 25 (füllt den Balken wieder auf)
+            if (checkHit(snacks[i])) { player.durst = Math.min(100, player.durst + 25); snacks.splice(i, 1); }
         }
         for (let i = confettiParticles.length - 1; i >= 0; i--) {
             let p = confettiParticles[i]; p.vy += p.gravity * ticks; p.x += p.vx * ticks; p.y += p.vy * ticks;
@@ -549,7 +538,6 @@
 
         let nowTime = performance.now();
 
-        // Einbindung von Ed.png statt der alten Pixelmatrix
         ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Ed Sheeran", 55, 650);
         if (imgEd.complete && imgEd.naturalWidth !== 0) {
             ctx.drawImage(imgEd, 25, 660, 60, 48);
@@ -557,7 +545,6 @@
             ctx.fillStyle = "#e67e22"; ctx.fillRect(25, 660, 40, 48); 
         }
 
-        // Punkband (Oben)
         let bandY = 40 + Math.sin(nowTime * 0.008) * 6;
         ctx.fillStyle = "#d35400"; ctx.fillRect(130, bandY, 20, 20); ctx.fillStyle = "#ffcc99"; ctx.fillRect(132, bandY+5, 16, 15);
         ctx.fillStyle = "#9b59b6"; ctx.fillRect(125, bandY+20, 30, 25); ctx.fillStyle = "#fff"; ctx.fillRect(115, bandY + 30, 25, 5);
@@ -571,7 +558,6 @@
         ctx.fillStyle = "#3498db"; ctx.fillRect(380, bandY+20, 30, 25);
         ctx.fillStyle = "#6e2c00"; ctx.fillRect(360, bandY + 25, 45, 5); ctx.fillStyle = "#f1c40f"; ctx.fillRect(360, bandY + 23, 12, 8);
 
-        // Items, Spielfigur, Strahl & UI
         beers.forEach(b => {
             ctx.fillStyle = "#ffffff"; ctx.fillRect(b.x, b.y, b.width, 8);
             ctx.fillStyle = "#f1c40f"; ctx.fillRect(b.x + 2, b.y + 8, b.width - 4, b.height - 8);
@@ -587,9 +573,16 @@
         ctx.fillStyle = "#f39c12"; pfuetzen.forEach(p => ctx.fillRect(p.x - 15, p.y - 3, 30, 6));
 
         ctx.save();
-        // Dynamischer Bildwechsel für die Mund-Animation (Auf/Zu im Takt der Loops)
+        
+        // Anpassung der Mund-Animation:
+        // Im Spiel (PLAYING) nur offen wenn er trinkt. Im Menü (MENU) dauerhafte Idle-Dauerschleife.
         let activeChar = characters[player.character];
-        let useMouthOpen = player.isDrinking || (Math.floor(nowTime / 250) % 2 === 0);
+        let useMouthOpen = false;
+        if (gameState === "PLAYING") {
+            useMouthOpen = player.isDrinking;
+        } else {
+            useMouthOpen = (Math.floor(nowTime / 250) % 2 === 0);
+        }
         let curImg = useMouthOpen ? activeChar.sauft : activeChar.normal;
 
         if (curImg.complete && curImg.naturalWidth !== 0) {
@@ -635,7 +628,14 @@
         let dt = timestamp - lastTime;
         if (isNaN(dt)) dt = FRAME_DURATION;
         lastTime = timestamp;
-        if (gameState === "PLAYING") { updateGame(dt); renderGame(); }
+        
+        // Rendert die Charakter-Animation auch im Menü für die Vorschau
+        if (gameState === "PLAYING") { 
+            updateGame(dt); 
+            renderGame(); 
+        } else if (gameState === "MENU") {
+            renderGame();
+        }
         requestAnimationFrame(gameLoop);
     }
 
