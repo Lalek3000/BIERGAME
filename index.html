@@ -19,7 +19,7 @@
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
     </style>
-    <!-- Echte, saubere Firebase-Bibliotheken -->
+    <!-- Offizielle Google-Verbindungen -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 </head>
@@ -73,7 +73,7 @@
 </div>
 
 <script>
-// --- 1. FIREBASE SETUP & INITIALISIERUNG (EXAKT NACH DEINEM INPUT) ---
+// --- 1. ROBUSTE FIREBASE INITIALISIERUNG MIT SAFETYS ---
 const firebaseConfig = {
     apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
     authDomain: "://firebaseapp.com",
@@ -83,8 +83,23 @@ const firebaseConfig = {
     messagingSenderId: "706208794774",
     appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+
+let db = null;
+let firebaseActive = false;
+
+// Überprüfung, ob das Firebase-SDK erfolgreich geladen wurde
+if (typeof firebase !== 'undefined') {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        firebaseActive = true;
+        console.log("Firebase erfolgreich initialisiert.");
+    } catch (e) {
+        console.log("Firebase-Start fehlgeschlagen, wechsle in den Offline-Modus:", e);
+    }
+} else {
+    console.log("Firebase-SDK wurde vom Browser blockiert oder ist offline. Spiel startet lokal.");
+}
 
 // --- 2. CRASH-PROOF WEB AUDIO SYNTHESIZER ---
 const AudioSynth = {
@@ -206,7 +221,7 @@ audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true
 
 function safePlay(audioObj) {
     if (audioObj) {
-        audioObj.play().catch(e => console.log("Audio wartet auf Klick:", e.message));
+        audioObj.play().catch(e => console.log("Audio blockiert:", e.message));
     }
 }
 
@@ -246,53 +261,82 @@ document.getElementById("btn-restart").addEventListener("click", () => {
 btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); });
 btnDrink.addEventListener("mousedown", () => { AudioSynth.init(); tryDrink(); });
 
-// --- GOOGLE FIREBASE LIVE HIGHSCORES MIT CRASH-SCHUTZ ---
+// --- ADAPTIVES HIGHSCORE SYSTEM (FIREBASE ODER LOCALSTORAGE FALLBACK) ---
 function loadHighscores() {
     const container = document.getElementById("highscores-container");
     if (!container) return;
     
-    db.collection("highscores")
-    .orderBy("score", "desc")
-    .limit(5)
-    .get()
-    .then(snapshot => {
-        highscores = [];
-        container.innerHTML = "";
-        snapshot.forEach(doc => {
-            highscores.push(doc.data());
+    // Wenn Firebase aktiv ist, lade live vom Server. Sonst lokal aus dem Browser.
+    if (firebaseActive && db) {
+        db.collection("highscores")
+        .orderBy("score", "desc")
+        .limit(5)
+        .get()
+        .then(snapshot => {
+            highscores = [];
+            container.innerHTML = "";
+            snapshot.forEach(doc => { highscores.push(doc.data()); });
+            
+            if (highscores.length === 0) {
+                container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>";
+            } else {
+                highscores.forEach((hs, idx) => {
+                    container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`;
+                });
+            }
+        })
+        .catch(err => {
+            console.log("Firebase-Ladefehler, nutze lokalen Speicher:", err);
+            loadLocalHighscoresFallback(container);
         });
-        
-        if (highscores.length === 0) {
-            container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>";
-        } else {
-            highscores.forEach((hs, idx) => {
-                container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`;
-            });
-        }
-    })
-    .catch(err => {
-        console.log("Firebase blockiert/Offline. Lade Fallback:", err);
-        container.innerHTML = "<div class='score-item' style='color:#e74c3c;'>Offline / Lokaler Modus</div>";
-    });
+    } else {
+        loadLocalHighscoresFallback(container);
+    }
+}
+
+function loadLocalHighscoresFallback(container) {
+    highscores = JSON.parse(localStorage.getItem("mademann_highscores")) || [];
+    container.innerHTML = "";
+    if (highscores.length === 0) {
+        container.innerHTML = "<div class='score-item'>Noch keine Einträge (Lokal)</div>";
+    } else {
+        highscores.forEach((hs, idx) => {
+            container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE (Lokal)</div>`;
+        });
+    }
 }
 
 function saveFirebaseHighscore() {
-    if (highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score) {
-        let name = prompt("Du hast die weltweiten TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
-        if (!name) name = "ANONYM";
-        
+    let isTopScore = highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score;
+    if (!isTopScore) return;
+
+    let name = prompt("Du hast die TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
+    if (!name) name = "ANONYM";
+    let cleanName = name.toUpperCase().slice(0, 12);
+
+    if (firebaseActive && db) {
         db.collection("highscores").add({
-            name: name.toUpperCase().slice(0, 12),
+            name: cleanName,
             score: player.biereGesoffen,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         })
-        .then(() => {
-            loadHighscores();
-        })
+        .then(() => { loadHighscores(); })
         .catch(err => {
-            console.log("Fehler beim Sichern des Highscores:", err);
+            console.log("Fehler beim Online-Speichern, sichere lokal:", err);
+            saveLocalScore(cleanName);
         });
+    } else {
+        saveLocalScore(cleanName);
     }
+}
+
+function saveLocalScore(cleanName) {
+    let localScores = JSON.parse(localStorage.getItem("mademann_highscores")) || [];
+    localScores.push({ name: cleanName, score: player.biereGesoffen });
+    localScores.sort((a, b) => b.score - a.score);
+    localScores = localScores.slice(0, 5);
+    localStorage.setItem("mademann_highscores", JSON.stringify(localScores));
+    loadHighscores();
 }
 
 // --- CONTROLS INPUT SYSTEM ---
@@ -304,7 +348,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
 canvas.addEventListener('touchstart', e => { e.preventDefault(); AudioSynth.init(); handleTouch(e.touches); }, { passive: false });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.touches); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); AudioSynth.init(); handleTouch(e.touches); }, { passive: false });
 canvas.addEventListener('touchend', e => {
     e.preventDefault();
     joystick.active = false;
@@ -340,7 +384,7 @@ function tryDrink() {
         if (!player.doenerPowerActive) player.durst -= 15;
     }
 }
-// --- 4. GAME LOOP LOGIK MIT BALANCIERTER PHYSIK ---
+// --- 4. GAME LOOP LOGIK MIT UTILITY SOUND-TRIGGERS ---
 function startGame() {
     gameState = "PLAYING";
     player.biereGesoffen = 0; player.verschuettet = 0; player.blase = 0; player.durst = 100;
@@ -448,7 +492,7 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
-    // Klozone ganz unten links
+    // Klozone ganz unten links (X < 110, Y zwischen 620 und 780)
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
         AudioSynth.startUrin();
@@ -464,8 +508,7 @@ function updateGame(dt) {
         if (checkHit(b)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen++; player.blase++;
-                AudioSynth.playDrink();
-                audio.ruelps.currentTime = 0; safePlay(audio.ruelps);
+                AudioSynth.playDrink(); // Ruelps-Aufruf restlos gelöscht!
                 
                 if (player.biereGesoffen % 100 === 0) { 
                     colorShiftIdx++; 
@@ -488,8 +531,7 @@ function updateGame(dt) {
         if (checkHit(g)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen += 3; player.blase++;
-                AudioSynth.playDrink();
-                audio.ruelps.currentTime = 0; safePlay(audio.ruelps);
+                AudioSynth.playDrink(); // Ruelps-Aufruf restlos gelöscht!
                 if (player.biereGesoffen % 100 === 0) { 
                     colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90;
                     if (player.biereGesoffen === 1000) spawnConfetti();
@@ -506,7 +548,7 @@ function updateGame(dt) {
     for (let i = doeners.length - 1; i >= 0; i--) {
         let d = doeners[i]; d.vy += d.gravity * ticks; d.x += d.vx * ticks; d.y += d.vy * ticks;
         if (checkHit(d)) {
-            if (player.isDrinking) { player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); audio.ruelps.currentTime = 0; safePlay(audio.ruelps); }
+            if (player.isDrinking) { player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); }
             doeners.splice(i, 1); continue;
         }
         if (d.y > canvas.height - 180) doeners.splice(i, 1);
@@ -528,7 +570,7 @@ function triggerGameOver() {
     audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
     document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
     document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
-    scrGameOver.style.display = "flex"; saveLocalHighscore();
+    scrGameOver.style.display = "flex"; saveFirebaseHighscore();
 }
 // --- 5. VISUAL RENDERING ENGINE ---
 function renderGame() {
@@ -679,7 +721,6 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-// Fehlerfreie Initialisierung beim Laden
 loadHighscores();
 safePlay(audio.bgMenu);
 requestAnimationFrame(gameLoop);
