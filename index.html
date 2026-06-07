@@ -19,7 +19,7 @@
         #score-list { margin-top: 20px; width: 250px; text-align: center; }
         .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
     </style>
-    <!-- Offizielle Google-Verbindungen -->
+    <!-- Offizielle Google CDN Links -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 </head>
@@ -73,7 +73,7 @@
 </div>
 
 <script>
-// --- 1. ROBUSTE FIREBASE INITIALISIERUNG MIT SAFETYS ---
+// --- 1. ROBUSTE FIREBASE INITIALISIERUNG MIT TOTAL-FALLBACK ---
 const firebaseConfig = {
     apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
     authDomain: "://firebaseapp.com",
@@ -87,21 +87,18 @@ const firebaseConfig = {
 let db = null;
 let firebaseActive = false;
 
-// Überprüfung, ob das Firebase-SDK erfolgreich geladen wurde
 if (typeof firebase !== 'undefined') {
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         firebaseActive = true;
-        console.log("Firebase erfolgreich initialisiert.");
+        console.log("Firebase erfolgreich verbunden.");
     } catch (e) {
-        console.log("Firebase-Start fehlgeschlagen, wechsle in den Offline-Modus:", e);
+        console.log("Firebase-Blockade abgefangen. Lokalmodus aktiv.");
     }
-} else {
-    console.log("Firebase-SDK wurde vom Browser blockiert oder ist offline. Spiel startet lokal.");
 }
 
-// --- 2. CRASH-PROOF WEB AUDIO SYNTHESIZER ---
+// --- 2. ABSTURZSICHERER AUDIO SYNTHESIZER ---
 const AudioSynth = {
     ctx: null,
     urinInterval: null,
@@ -111,7 +108,7 @@ const AudioSynth = {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             } catch (e) {
-                console.log("Web Audio API blockiert:", e);
+                console.log("Audio API deaktiviert.");
             }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
@@ -134,7 +131,7 @@ const AudioSynth = {
             gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
             osc.start();
             osc.stop(this.ctx.currentTime + 0.15);
-        } catch (e) { console.log(e); }
+        } catch (e) {}
     },
 
     playSpill() {
@@ -152,7 +149,7 @@ const AudioSynth = {
             gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
             osc.start();
             osc.stop(this.ctx.currentTime + 0.25);
-        } catch (e) { console.log(e); }
+        } catch (e) {}
     },
 
     startUrin() {
@@ -177,7 +174,7 @@ const AudioSynth = {
                 gain.connect(this.ctx.destination);
                 noise.start();
             }, 40);
-        } catch (e) { console.log(e); }
+        } catch (e) {}
     },
 
     stopUrin() {
@@ -188,7 +185,7 @@ const AudioSynth = {
     }
 };
 
-// --- 3. CORE ENGINE SETUP & VARIABLEN ---
+// --- 3. GAME SETTINGS & ENGINE CONFIG ---
 let lastTime = performance.now();
 const TARGET_FPS = 60;
 const FRAME_DURATION = 1000 / TARGET_FPS;
@@ -210,18 +207,18 @@ const player = {
 const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
 const drinkButton = { x: 335, y: 845, radius: 45 };
 
+// [Befehl umgesetzt: ruelps.mp3 gelöscht, um Konsolenfehler zu bannen]
 const audio = {
     bgMenu: new Audio("backgroundmenu.mp3"),
     bgBierloch: new Audio("backgroundbierloch.mp3"),
-    bgGito: new Audio("backgroundgito.mp3"),
-    ruelps: new Audio("ruelps.mp3")
+    bgGito: new Audio("backgroundgito.mp3")
 };
 Object.keys(audio).forEach(key => audio[key].volume = 0.5);
 audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
 
 function safePlay(audioObj) {
     if (audioObj) {
-        audioObj.play().catch(e => console.log("Audio blockiert:", e.message));
+        audioObj.play().catch(e => console.log("Audio blockiert"));
     }
 }
 
@@ -261,12 +258,11 @@ document.getElementById("btn-restart").addEventListener("click", () => {
 btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); });
 btnDrink.addEventListener("mousedown", () => { AudioSynth.init(); tryDrink(); });
 
-// --- ADAPTIVES HIGHSCORE SYSTEM (FIREBASE ODER LOCALSTORAGE FALLBACK) ---
+// --- ADAPTIVES HIGHSCORE SYSTEM (ABSTURZSICHER) ---
 function loadHighscores() {
     const container = document.getElementById("highscores-container");
     if (!container) return;
     
-    // Wenn Firebase aktiv ist, lade live vom Server. Sonst lokal aus dem Browser.
     if (firebaseActive && db) {
         db.collection("highscores")
         .orderBy("score", "desc")
@@ -286,7 +282,7 @@ function loadHighscores() {
             }
         })
         .catch(err => {
-            console.log("Firebase-Ladefehler, nutze lokalen Speicher:", err);
+            console.log("Nutze lokalen Speicher-Fallback.");
             loadLocalHighscoresFallback(container);
         });
     } else {
@@ -315,16 +311,19 @@ function saveFirebaseHighscore() {
     let cleanName = name.toUpperCase().slice(0, 12);
 
     if (firebaseActive && db) {
-        db.collection("highscores").add({
-            name: cleanName,
-            score: player.biereGesoffen,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(() => { loadHighscores(); })
-        .catch(err => {
-            console.log("Fehler beim Online-Speichern, sichere lokal:", err);
+        try {
+            db.collection("highscores").add({
+                name: cleanName,
+                score: player.biereGesoffen,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+            .then(() => { loadHighscores(); })
+            .catch(err => {
+                saveLocalScore(cleanName);
+            });
+        } catch(e) {
             saveLocalScore(cleanName);
-        });
+        }
     } else {
         saveLocalScore(cleanName);
     }
@@ -348,7 +347,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
 canvas.addEventListener('touchstart', e => { e.preventDefault(); AudioSynth.init(); handleTouch(e.touches); }, { passive: false });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); AudioSynth.init(); handleTouch(e.touches); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); handleTouch(e.touches); }, { passive: false });
 canvas.addEventListener('touchend', e => {
     e.preventDefault();
     joystick.active = false;
@@ -492,7 +491,6 @@ function updateGame(dt) {
     if (moveX > 0.1) player.facing = 'right';
     if (moveX < -0.1) player.facing = 'left';
 
-    // Klozone ganz unten links (X < 110, Y zwischen 620 und 780)
     if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
         player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0;
         AudioSynth.startUrin();
@@ -508,7 +506,7 @@ function updateGame(dt) {
         if (checkHit(b)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen++; player.blase++;
-                AudioSynth.playDrink(); // Ruelps-Aufruf restlos gelöscht!
+                AudioSynth.playDrink();
                 
                 if (player.biereGesoffen % 100 === 0) { 
                     colorShiftIdx++; 
@@ -531,7 +529,7 @@ function updateGame(dt) {
         if (checkHit(g)) {
             if (player.isDrinking && player.blase < player.maxBlase) {
                 player.biereGesoffen += 3; player.blase++;
-                AudioSynth.playDrink(); // Ruelps-Aufruf restlos gelöscht!
+                AudioSynth.playDrink();
                 if (player.biereGesoffen % 100 === 0) { 
                     colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90;
                     if (player.biereGesoffen === 1000) spawnConfetti();
@@ -721,6 +719,7 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
+// Sichere Initialisierung beim Laden
 loadHighscores();
 safePlay(audio.bgMenu);
 requestAnimationFrame(gameLoop);
