@@ -132,23 +132,27 @@
     const joystick = { startX: 120, startY: 840, currentX: 120, currentY: 840, active: false, maxRadius: 50, vx: 0, vy: 0 };
     const drinkButton = { x: 335, y: 845, radius: 45 };
 
-    const audio = {
+        const audio = {
         bgMenu: new Audio("backgroundmenu.mp3"),
         bgBierloch: new Audio("backgroundbierloch.mp3"),
         bgGito: new Audio("backgroundgito.mp3")
     };
-    Object.keys(audio).forEach(key => audio[key].volume = 0.2);
+    Object.keys(audio).forEach(key => audio[key].volume = 0.3);
     audio.bgMenu.loop = true; audio.bgBierloch.loop = true; audio.bgGito.loop = true;
 
-    // Mobile-Sicherheitsfunktion für nahtlosen Musikwechsel ohne Blockaden
+    // Mobile-Sicherheitsfunktion für Musikwechsel
     function playTrack(trackKey) {
+        // Stoppe alle anderen Tracks komplett und setze sie zurück
         Object.keys(audio).forEach(key => {
-            if (key !== trackKey) audio[key].pause();
+            if (key !== trackKey) {
+                audio[key].pause();
+            }
         });
+        // Starte den gewünschten Track frisch
         if (audio[trackKey]) {
             audio[trackKey].currentTime = 0;
-            audio[trackKey].load(); // Zwingt mobile Browser zur Neu-Initialisierung
-            audio[trackKey].play().catch(e => console.log("Audio blockiert:", e));
+            audio[trackKey].load(); // Zwingt mobile Browser, den Stream neu zu binden
+            audio[trackKey].play().catch(e => console.log("Musik-Wechsel blockiert:", e));
         }
     }
 
@@ -168,7 +172,6 @@
     characters.olip.sauft.src = 'olisauft.png';
     characters.alex.normal.src = 'alex.png';
     characters.alex.sauft.src = 'alexsauft.png';
-
 
     const firebaseConfig = {
         apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
@@ -319,17 +322,9 @@
     const charSelectorScreen = document.getElementById("char-selector-screen");
     const btnLetsGo = document.getElementById("btn-letsgo");
 
-    // Berechtigt das Smartphone, alle Musikdateien im Hintergrund abzuspielen
-    function unlockMobileAudio() {
-        AudioSynth.init();
-        Object.keys(audio).forEach(key => {
-            audio[key].play().then(() => { audio[key].pause(); }).catch(() => {});
-        });
-    }
-
     document.getElementById("btn-start").addEventListener("click", () => {
-        unlockMobileAudio();
-        playTrack('bgMenu'); 
+        AudioSynth.init();
+        safePlay(audio.bgMenu); 
         mainMenuButtons.style.display = "none";
         charSelectorScreen.style.display = "block";
         btnLetsGo.style.display = "flex";
@@ -338,8 +333,8 @@
     const boxes = { mademann: document.getElementById("char-mademann"), olip: document.getElementById("char-olip"), alex: document.getElementById("char-alex") };
     Object.keys(boxes).forEach(key => {
         boxes[key].addEventListener("click", () => {
-            unlockMobileAudio();
-            playTrack('bgMenu');
+            AudioSynth.init();
+            safePlay(audio.bgMenu);
             Object.values(boxes).forEach(box => box.classList.remove("selected"));
             boxes[key].classList.add("selected");
             player.character = key;
@@ -356,7 +351,7 @@
     });
 
     document.getElementById("btn-rules").addEventListener("click", () => {
-        unlockMobileAudio(); playTrack('bgMenu'); scrMenu.style.display = "none"; scrRules.style.display = "flex";
+        AudioSynth.init(); safePlay(audio.bgMenu); scrMenu.style.display = "none"; scrRules.style.display = "flex";
     });
     document.getElementById("btn-back").addEventListener("click", () => {
         scrRules.style.display = "none"; scrMenu.style.display = "flex";
@@ -481,6 +476,8 @@
     }
     function updateGame(dt) {
         let ticks = dt / FRAME_DURATION;
+        
+        // Spieler-Wackeln dekrementieren
         if (player.wobbleTimer > 0) player.wobbleTimer -= ticks;
 
         beerSpawnTimer -= ticks;
@@ -492,7 +489,7 @@
             nextGitoRoundTimer -= ticks;
             if (nextGitoRoundTimer <= 0) {
                 gitoRoundActive = true; gitoRoundTimer = 480;
-                playTrack('bgGito'); // Korrigiert für Mobile Audio-Wechsel
+                audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; safePlay(audio.bgGito);
             }
         }
         if (gitoRoundActive) {
@@ -503,7 +500,7 @@
             }
             if (gitoRoundTimer <= 0) {
                 gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60;
-                playTrack('bgBierloch'); // Korrigiert für Mobile Audio-Wechsel
+                audio.bgGito.pause(); audio.bgBierloch.currentTime = 0; safePlay(audio.bgBierloch);
             }
         }
         nextDoenerTimer -= ticks;
@@ -511,15 +508,19 @@
             doeners.push({ x: canvas.width / 2, y: 80, vx: (Math.random() - 0.5) * 3, vy: 1, width: 30, height: 20, gravity: 0.05 });
             nextDoenerTimer = (90 + Math.floor(Math.random() * 60)) * 60;
         }
+        
+        // Halbierte Spawnrate (0.0015 statt 0.003) und um 20 Pixel nach rechts verschobener Rand (X: 440)
         if (Math.random() < 0.0015 && snacks.length < 3) {
             snacks.push({ x: 440, y: 240 + Math.random() * 180, width: 26, height: 20 });
         }
+        
         if (player.doenerPowerActive) {
             player.durst = 100;
             if ((player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
         } else if (player.durst < 100) {
             player.durst += 0.15 * ticks;
         }
+        
         if (player.isDrinking && (player.drinkTimer -= ticks) <= 0) player.isDrinking = false;
 
         let moveX = keys['d'] || keys['D'] || keys['ArrowRight'] ? 1 : (keys['a'] || keys['A'] || keys['ArrowLeft'] ? -1 : 0);
@@ -548,7 +549,8 @@
 
         if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
             player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0; 
-            AudioSynth.startUrin(); spawnFeedback(47, 702, 'urine'); 
+            AudioSynth.startUrin();
+            spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
 
         handleBubbles(ticks);
@@ -568,12 +570,13 @@
                     player.biereGesoffen++; player.blase++; AudioSynth.playDrink();
                     if (player.biereGesoffen % 100 === 0) { 
                         colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90;
-                        AudioSynth.playMilestone();
+                        AudioSynth.playMilestone(); // Neuer Erfolgssound bei Meilenstein
                         if (player.biereGesoffen === 1000) spawnConfetti();
                     }
                 } else {
                     player.verschuettet++; AudioSynth.playSpill(); pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height - 190) });
-                    player.wobbleTimer = 25; spawnFeedback(b.x, b.y, 'spill');
+                    player.wobbleTimer = 25; // Aktiviert Spieler-Wackeln bei Kollision
+                    spawnFeedback(b.x, b.y, 'spill'); // Flüssigkeits-Spritzer
                     if (player.verschuettet >= 100) triggerGameOver();
                 }
                 beers.splice(i, 1); continue;
@@ -595,7 +598,8 @@
                     }
                 } else {
                     player.verschuettet++; AudioSynth.playSpill(); pfuetzen.push({ x: g.x, y: g.y });
-                    player.wobbleTimer = 25; spawnFeedback(g.x, g.y, 'spill');
+                    player.wobbleTimer = 25;
+                    spawnFeedback(g.x, g.y, 'spill');
                     if (player.verschuettet >= 100) triggerGameOver();
                 }
                 giTos.splice(i, 1); continue;
@@ -606,7 +610,8 @@
             let d = doeners[i]; d.vy += d.gravity * ticks; d.x += d.vx * ticks; d.y += d.vy * ticks;
             if (checkHit(d)) {
                 if (player.isDrinking) { 
-                    player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); 
+                    player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; 
+                    AudioSynth.playDrink(); 
                     spawnFeedback(player.x + player.width/2, player.y + player.height/2, 'doener'); 
                 }
                 doeners.splice(i, 1); continue;
@@ -615,7 +620,9 @@
         }
         for (let i = snacks.length - 1; i >= 0; i--) {
             if (checkHit(snacks[i])) { 
-                player.durst = Math.min(100, player.durst + 25); spawnFeedback(snacks[i].x + 13, snacks[i].y + 10, 'snack'); snacks.splice(i, 1); 
+                player.durst = Math.min(100, player.durst + 25); 
+                spawnFeedback(snacks[i].x + 13, snacks[i].y + 10, 'snack'); 
+                snacks.splice(i, 1); 
             }
         }
         for (let i = confettiParticles.length - 1; i >= 0; i--) {
@@ -626,12 +633,11 @@
 
     function triggerGameOver() {
         gameState = "GAMEOVER"; btnDrink.style.display = "none"; AudioSynth.stopUrin();
-        playTrack('bgMenu'); // Korrigiert für Mobile Audio-Wechsel
+        audio.bgBierloch.pause(); audio.bgGito.pause(); audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
         document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
         document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
         scrGameOver.style.display = "flex"; saveFirebaseHighscore();
     }
-
     // --- 6. VISUAL RENDERING ENGINE ---
     function renderGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -790,6 +796,7 @@
         if (player.doenerPowerActive) { ctx.fillStyle = "#e67e22"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("DÖNER POWER: UNENDLICH DURST!", canvas.width / 2, 195); }
         if (!gitoRoundActive && nextGitoRoundTimer < 300) { ctx.fillStyle = "#e74c3c"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.fillText(`GiTo-RUNDE IN ${Math.ceil(nextGitoRoundTimer / 60)}...`, canvas.width / 2, 240); }
 
+        ctx.fillStyle = "#111"; ctx.fillRect(0, 780, canvas.width, 180);
         ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, joystick.maxRadius, 0, Math.PI * 2);
         ctx.fillStyle = "#222"; ctx.fill(); ctx.strokeStyle = "#444"; ctx.lineWidth = 3; ctx.stroke();
         ctx.beginPath(); ctx.arc(joystick.currentX, joystick.currentY, 22, 0, Math.PI * 2); ctx.fillStyle = "#e74c3c"; ctx.fill();
