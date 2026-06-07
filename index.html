@@ -481,8 +481,6 @@
     }
     function updateGame(dt) {
         let ticks = dt / FRAME_DURATION;
-        
-        // Spieler-Wackeln dekrementieren
         if (player.wobbleTimer > 0) player.wobbleTimer -= ticks;
 
         beerSpawnTimer -= ticks;
@@ -494,7 +492,7 @@
             nextGitoRoundTimer -= ticks;
             if (nextGitoRoundTimer <= 0) {
                 gitoRoundActive = true; gitoRoundTimer = 480;
-                audio.bgBierloch.pause(); audio.bgGito.currentTime = 0; safePlay(audio.bgGito);
+                playTrack('bgGito'); // Korrigiert für Mobile Audio-Wechsel
             }
         }
         if (gitoRoundActive) {
@@ -505,7 +503,7 @@
             }
             if (gitoRoundTimer <= 0) {
                 gitoRoundActive = false; nextGitoRoundTimer = (120 + Math.floor(Math.random() * 120)) * 60;
-                audio.bgGito.pause(); audio.bgBierloch.currentTime = 0; safePlay(audio.bgBierloch);
+                playTrack('bgBierloch'); // Korrigiert für Mobile Audio-Wechsel
             }
         }
         nextDoenerTimer -= ticks;
@@ -513,19 +511,15 @@
             doeners.push({ x: canvas.width / 2, y: 80, vx: (Math.random() - 0.5) * 3, vy: 1, width: 30, height: 20, gravity: 0.05 });
             nextDoenerTimer = (90 + Math.floor(Math.random() * 60)) * 60;
         }
-        
-        // Halbierte Spawnrate (0.0015 statt 0.003) und um 20 Pixel nach rechts verschobener Rand (X: 440)
         if (Math.random() < 0.0015 && snacks.length < 3) {
             snacks.push({ x: 440, y: 240 + Math.random() * 180, width: 26, height: 20 });
         }
-        
         if (player.doenerPowerActive) {
             player.durst = 100;
             if ((player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
         } else if (player.durst < 100) {
             player.durst += 0.15 * ticks;
         }
-        
         if (player.isDrinking && (player.drinkTimer -= ticks) <= 0) player.isDrinking = false;
 
         let moveX = keys['d'] || keys['D'] || keys['ArrowRight'] ? 1 : (keys['a'] || keys['A'] || keys['ArrowLeft'] ? -1 : 0);
@@ -554,8 +548,7 @@
 
         if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
             player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0; 
-            AudioSynth.startUrin();
-            spawnFeedback(47, 702, 'urine'); 
+            AudioSynth.startUrin(); spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
 
         handleBubbles(ticks);
@@ -575,13 +568,12 @@
                     player.biereGesoffen++; player.blase++; AudioSynth.playDrink();
                     if (player.biereGesoffen % 100 === 0) { 
                         colorShiftIdx++; milestoneEffectActive = true; milestoneTimer = 90;
-                        AudioSynth.playMilestone(); // Neuer Erfolgssound bei Meilenstein
+                        AudioSynth.playMilestone();
                         if (player.biereGesoffen === 1000) spawnConfetti();
                     }
                 } else {
                     player.verschuettet++; AudioSynth.playSpill(); pfuetzen.push({ x: b.x, y: Math.min(b.y, canvas.height - 190) });
-                    player.wobbleTimer = 25; // Aktiviert Spieler-Wackeln bei Kollision
-                    spawnFeedback(b.x, b.y, 'spill'); // Flüssigkeits-Spritzer
+                    player.wobbleTimer = 25; spawnFeedback(b.x, b.y, 'spill');
                     if (player.verschuettet >= 100) triggerGameOver();
                 }
                 beers.splice(i, 1); continue;
@@ -603,8 +595,7 @@
                     }
                 } else {
                     player.verschuettet++; AudioSynth.playSpill(); pfuetzen.push({ x: g.x, y: g.y });
-                    player.wobbleTimer = 25;
-                    spawnFeedback(g.x, g.y, 'spill');
+                    player.wobbleTimer = 25; spawnFeedback(g.x, g.y, 'spill');
                     if (player.verschuettet >= 100) triggerGameOver();
                 }
                 giTos.splice(i, 1); continue;
@@ -615,8 +606,7 @@
             let d = doeners[i]; d.vy += d.gravity * ticks; d.x += d.vx * ticks; d.y += d.vy * ticks;
             if (checkHit(d)) {
                 if (player.isDrinking) { 
-                    player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; 
-                    AudioSynth.playDrink(); 
+                    player.doenerPowerActive = true; player.doenerTimer = 600; player.durst = 100; AudioSynth.playDrink(); 
                     spawnFeedback(player.x + player.width/2, player.y + player.height/2, 'doener'); 
                 }
                 doeners.splice(i, 1); continue;
@@ -625,9 +615,7 @@
         }
         for (let i = snacks.length - 1; i >= 0; i--) {
             if (checkHit(snacks[i])) { 
-                player.durst = Math.min(100, player.durst + 25); 
-                spawnFeedback(snacks[i].x + 13, snacks[i].y + 10, 'snack'); 
-                snacks.splice(i, 1); 
+                player.durst = Math.min(100, player.durst + 25); spawnFeedback(snacks[i].x + 13, snacks[i].y + 10, 'snack'); snacks.splice(i, 1); 
             }
         }
         for (let i = confettiParticles.length - 1; i >= 0; i--) {
@@ -638,11 +626,12 @@
 
     function triggerGameOver() {
         gameState = "GAMEOVER"; btnDrink.style.display = "none"; AudioSynth.stopUrin();
-        audio.bgBierloch.pause(); audio.bgGito.pause(); audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
+        playTrack('bgMenu'); // Korrigiert für Mobile Audio-Wechsel
         document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
         document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
         scrGameOver.style.display = "flex"; saveFirebaseHighscore();
     }
+
     // --- 6. VISUAL RENDERING ENGINE ---
     function renderGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
