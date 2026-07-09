@@ -29,7 +29,7 @@
             font-weight: bold; 
             text-transform: uppercase;
             cursor: pointer; 
-            display: flex; 
+            display: none; 
             align-items: center; 
             justify-content: center; 
             box-shadow: 0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5);
@@ -367,23 +367,6 @@ const touchControl = {
             tryDrink();
         }, { passive: false });
     }
-        // --- BUZZER AUSGRAUEN WENN NICHT GENUG DURST MÖGLICH IST ---
-        const buzzerElement = document.getElementById("drink-btn");
-        if (buzzerElement) {
-            // Man braucht mindestens 15 Durst zum Trinken (oder Döner-Power ist aktiv)
-            if (player.durst >= 15 || player.doenerPowerActive) {
-                buzzerElement.style.opacity = "1";
-                buzzerElement.style.filter = "none";
-                buzzerElement.style.pointerEvents = "auto"; // Klicks erlauben
-            } else {
-                buzzerElement.style.opacity = "0.4";       // Leicht transparent machen
-                buzzerElement.style.filter = "grayscale(100%)"; // Komplett ausgrauen
-                buzzerElement.style.pointerEvents = "none"; // Klicks blockieren, wenn inaktiv
-            }
-        }
-
-
-
 
 
     function tryDrink() {
@@ -665,7 +648,37 @@ const touchControl = {
             AudioSynth.startUrin();
             spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
-
+        
+        // --- ZENTRALE BUZZER-STEUERUNG (SICHTBARKEIT & DURST) ---
+        const buzzerElement = document.getElementById("drink-btn");
+        if (buzzerElement) {
+            
+            // 1. Sichtbarkeit je nach Spielzustand regeln
+            if (gameState === "PLAYING") {
+                // Nur im laufenden Spiel anzeigen
+                if (buzzerElement.style.display !== "flex") {
+                    buzzerElement.style.display = "flex";
+                }
+                
+                // 2. Ausgrauen je nach Durst-Ressource regeln
+                if (player.durst >= 15 || player.doenerPowerActive) {
+                    buzzerElement.style.opacity = "1";
+                    buzzerElement.style.filter = "none";
+                    buzzerElement.style.pointerEvents = "auto"; // Klicks erlauben
+                } else {
+                    buzzerElement.style.opacity = "0.2"; // Stark verblassen lassen
+                    buzzerElement.style.filter = "grayscale(100%) brightness(70%)"; // Komplett grau & dunkel
+                    buzzerElement.style.pointerEvents = "none"; // Klicks sperren
+                }
+                
+            } else {
+                // In allen anderen Zuständen (MENU, GAMEOVER, etc.) komplett ausblenden
+                if (buzzerElement.style.display !== "none") {
+                    buzzerElement.style.display = "none";
+                }
+            }
+        }
+        
         handleBubbles(ticks);
 
         for (let i = feedbackParticles.length - 1; i >= 0; i--) {
