@@ -102,7 +102,7 @@
             • <b>Ziel:</b> Du musst TAUSEND! BIERE! SAUFEN! <br><br>
             • <b>Steuerung:</b> WASD / Pfeiltasten oder Drag auf dem Touchpad. **je mehr Bier drin sind, desto schwerer wird die Steuerung (wie im echten Leben)**<br><br>
             • <b>Saufen:</b> LEERTASTE drücken oder unten TRINKEN buzzern **Ist die Blase voll oder der Durst leer, kannst du nicht trinken!**<br><br>
-            • <b>Durst:</b> Lädt sich über die Zeit oder durch Snacks von der Bar auf. (Friss den secret Döner für 10 Sekunden unendlich Durst!) <br><br>
+            • <b>Durst:</b> Lädt sich über die Zeit oder durch Snacks von der Bar auf. (Friss den secret Döner für 10 Sekunden unendlich Durst und Blasenkapazität!) <br><br>
             • <b>Blase:</b> Jedes Getränk füllt die Blase. Pass auf, dass deine Blase nie zu voll wird und besuch vorher lieber Ed auf dem Klo!<br><br>
             • <b>Verschütten:</b> Kollidierst du mit einem Bier ohne vorher dein Bierloch aufzumachen, verschüttest du es. Bei 100 verschütteten Bieren verlierst du!
         </div>
@@ -589,7 +589,7 @@ const touchControl = {
         
         if (player.doenerPowerActive) {
             player.durst = 100;
-            player.blase = 0;
+            player.blase = 80;
             if ((player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
         } else if (player.durst < 100) {
             player.durst += 0.15 * ticks;
