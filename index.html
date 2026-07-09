@@ -51,6 +51,20 @@
         .char-box.selected { border-color: #f1c40f; background: #333; }
         .char-canvas { background: #2a2a2a; border-radius: 3px; display: block; margin: 5px auto; }
         #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; margin: 20px auto 0 auto; }
+                /* --- NEON-GRÜNES PULSIEREN FÜR DEN DÖNER-MODE --- */
+        @keyframes doenerGlow {
+            0% {
+                box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
+            }
+            50% {
+                box-shadow: 0 8px 0 #27ae60, 0 15px 35px rgba(46, 204, 113, 1), 0 0 25px rgba(46, 204, 113, 0.8);
+                transform: translate(-50%, -4px); /* Der Button "hebt" sich visuell leicht ab */
+            }
+            100% {
+                box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
+            }
+        }
+
     </style>
     <!-- Stabile, klassische Firebase-Bibliotheken (Verhindert jsDelivr Timeouts) -->
     <script src="https://gstatic.com"></script>
@@ -355,22 +369,58 @@ const touchControl = {
         touchControl.active = false;
     }, { passive: false });
 
-    // --- DEN NEUEN ROTEN BUZZER AKTIVIEREN (MIT DOUBLE-TRIGGER-SCHUTZ) ---
-    const HTMLDrinkBtn = document.getElementById("drink-btn");
-    if (HTMLDrinkBtn) {
-        HTMLDrinkBtn.addEventListener('touchstart', e => {
-            // Verhindert das Standard-Verhalten und das "Nachfeuern" von Klicks
-            e.preventDefault(); 
-            e.stopPropagation(); 
+        // --- ZENTRALE BUZZER-STEUERUNG (MIT DÖNER-PULSIEREN) ---
+        const buzzerElement = document.getElementById("drink-btn");
+        if (buzzerElement) {
             
-            AudioSynth.init();
-            
-            // Nur trinken, wenn das Spiel läuft und man genug Durst hat
-            if (gameState === "PLAYING" && (player.durst >= 15 || player.doenerPowerActive)) {
-                tryDrink();
+            if (gameState === "PLAYING") {
+                if (buzzerElement.style.display !== "flex") {
+                    buzzerElement.style.display = "flex";
+                }
+                
+                if (player.durst >= 15 || player.doenerPowerActive) {
+                    buzzerElement.style.opacity = "1";
+                    buzzerElement.style.filter = "none";
+                    buzzerElement.style.pointerEvents = "auto";
+                    
+                    if (player.doenerPowerActive) {
+                        buzzerElement.style.background = "#2ecc71";
+                        buzzerElement.style.borderColor = "#2ecc71";
+                        buzzerElement.innerText = "DÖNER!";
+                        
+                        // NEU: Aktiviere die Pulsier-Animation, falls sie noch nicht läuft
+                        if (buzzerElement.style.animation !== "doenerGlow 0.8s infinite ease-in-out") {
+                            buzzerElement.style.animation = "doenerGlow 0.8s infinite ease-in-out";
+                        }
+                    } else {
+                        buzzerElement.style.background = "#e74c3c";
+                        buzzerElement.style.borderColor = "#fff";
+                        buzzerElement.style.boxShadow = "0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5)";
+                        buzzerElement.innerText = "TRINKEN";
+                        
+                        // NEU: Schalte die Animation im Normalmodus wieder aus
+                        if (buzzerElement.style.animation !== "none" && buzzerElement.style.animation !== "") {
+                            buzzerElement.style.animation = "none";
+                        }
+                    }
+                    
+                } else {
+                    buzzerElement.style.opacity = "0.2";
+                    buzzerElement.style.filter = "grayscale(100%) brightness(70%)";
+                    buzzerElement.style.pointerEvents = "none";
+                    
+                    // Sicherheitshalber auch beim Ausgrauen die Animation stoppen
+                    if (buzzerElement.style.animation !== "none" && buzzerElement.style.animation !== "") {
+                        buzzerElement.style.animation = "none";
+                    }
+                }
+                
+            } else {
+                if (buzzerElement.style.display !== "none") {
+                    buzzerElement.style.display = "none";
+                }
             }
-        }, { passive: false });
-    }
+        }
 
 
 
