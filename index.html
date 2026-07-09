@@ -367,6 +367,21 @@ const touchControl = {
             tryDrink();
         }, { passive: false });
     }
+        // --- BUZZER AUSGRAUEN WENN NICHT GENUG DURST MÖGLICH IST ---
+        const buzzerElement = document.getElementById("drink-btn");
+        if (buzzerElement) {
+            // Man braucht mindestens 15 Durst zum Trinken (oder Döner-Power ist aktiv)
+            if (player.durst >= 15 || player.doenerPowerActive) {
+                buzzerElement.style.opacity = "1";
+                buzzerElement.style.filter = "none";
+                buzzerElement.style.pointerEvents = "auto"; // Klicks erlauben
+            } else {
+                buzzerElement.style.opacity = "0.4";       // Leicht transparent machen
+                buzzerElement.style.filter = "grayscale(100%)"; // Komplett ausgrauen
+                buzzerElement.style.pointerEvents = "none"; // Klicks blockieren, wenn inaktiv
+            }
+        }
+
 
 
 
@@ -486,6 +501,9 @@ const touchControl = {
         milestoneTimer = 0; milestoneEffectActive = false;
         audio.bgMenu.pause(); audio.bgBierloch.currentTime = 0; safePlay(audio.bgBierloch);
         lastTime = performance.now();
+        if (document.getElementById("drink-btn")) {
+    document.getElementById("drink-btn").style.display = "flex";
+}
     }
 
     function spawnConfetti() {
@@ -732,6 +750,9 @@ const touchControl = {
         document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
         document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
         scrGameOver.style.display = "flex"; saveFirebaseHighscore();
+        if (document.getElementById("drink-btn")) {
+    document.getElementById("drink-btn").style.display = "none";
+}
     }
     // --- 6. VISUAL RENDERING ENGINE ---
     function renderGame() {
