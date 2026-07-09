@@ -589,6 +589,7 @@ const touchControl = {
         
         if (player.doenerPowerActive) {
             player.durst = 100;
+            player.blase = 0;
             if ((player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
         } else if (player.durst < 100) {
             player.durst += 0.15 * ticks;
@@ -654,35 +655,46 @@ const touchControl = {
             spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
         
-        // --- ZENTRALE BUZZER-STEUERUNG (SICHTBARKEIT & DURST) ---
+        // --- ZENTRALE BUZZER-STEUERUNG (NUN MIT NEON-GRÜNEM DÖNER-MODE) ---
         const buzzerElement = document.getElementById("drink-btn");
         if (buzzerElement) {
             
-            // 1. Sichtbarkeit je nach Spielzustand regeln
             if (gameState === "PLAYING") {
-                // Nur im laufenden Spiel anzeigen
                 if (buzzerElement.style.display !== "flex") {
                     buzzerElement.style.display = "flex";
                 }
                 
-                // 2. Ausgrauen je nach Durst-Ressource regeln
                 if (player.durst >= 15 || player.doenerPowerActive) {
                     buzzerElement.style.opacity = "1";
                     buzzerElement.style.filter = "none";
-                    buzzerElement.style.pointerEvents = "auto"; // Klicks erlauben
+                    buzzerElement.style.pointerEvents = "auto";
+                    
+                    // NEU: Visueller Döner-Modus für den Buzzer
+                    if (player.doenerPowerActive) {
+                        buzzerElement.style.background = "#2ecc71"; // Neon-Grün
+                        buzzerElement.style.borderColor = "#2ecc71";
+                        buzzerElement.style.boxShadow = "0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6)";
+                        buzzerElement.innerText = "DÖNER!"; // Ändert den Text auf dem Button optional
+                    } else {
+                        buzzerElement.style.background = "#e74c3c"; // Normales Rot
+                        buzzerElement.style.borderColor = "#fff";
+                        buzzerElement.style.boxShadow = "0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5)";
+                        buzzerElement.innerText = "TRINKEN"; // Zurück zum Standard-Text
+                    }
+                    
                 } else {
-                    buzzerElement.style.opacity = "0.2"; // Stark verblassen lassen
-                    buzzerElement.style.filter = "grayscale(100%) brightness(70%)"; // Komplett grau & dunkel
-                    buzzerElement.style.pointerEvents = "none"; // Klicks sperren
+                    buzzerElement.style.opacity = "0.2";
+                    buzzerElement.style.filter = "grayscale(100%) brightness(70%)";
+                    buzzerElement.style.pointerEvents = "none";
                 }
                 
             } else {
-                // In allen anderen Zuständen (MENU, GAMEOVER, etc.) komplett ausblenden
                 if (buzzerElement.style.display !== "none") {
                     buzzerElement.style.display = "none";
                 }
             }
         }
+
         
         handleBubbles(ticks);
 
