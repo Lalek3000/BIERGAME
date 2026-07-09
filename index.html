@@ -100,11 +100,10 @@
         <h2 style="font-size:22px; margin-bottom:20px;">SPIELREGELN</h2>
         <div id="rules-text">
             • <b>Ziel:</b> Du musst TAUSEND! BIERE! SAUFEN! <br><br>
-            • <b>Steuerung:</b> WASD / Pfeiltasten oder Smartphone-Joystick unten links. **je mehr Bier drin sind, desto schwerer wird die Steuerung (wie im echten Leben)**<br><br>
-            • <b>Saufen:</b> LEERTASTE drücken oder rechts auf TRINKEN tippen. **Ist die Blase voll oder der Durst leer, kannst du nicht trinken!**<br><br>
-            • <b>Durst:</b> Lädt sich über die Zeit oder durch Snacks von der Bar auf.<br><br>
+            • <b>Steuerung:</b> WASD / Pfeiltasten oder Drag auf dem Touchpad. **je mehr Bier drin sind, desto schwerer wird die Steuerung (wie im echten Leben)**<br><br>
+            • <b>Saufen:</b> LEERTASTE drücken oder unten TRINKEN buzzern **Ist die Blase voll oder der Durst leer, kannst du nicht trinken!**<br><br>
+            • <b>Durst:</b> Lädt sich über die Zeit oder durch Snacks von der Bar auf. (Friss den secret Döner für 10 Sekunden unendlich Durst!) <br><br>
             • <b>Blase:</b> Jedes Getränk füllt die Blase. Pass auf, dass deine Blase nie zu voll wird und besuch vorher lieber Ed auf dem Klo!<br><br>
-            • <b>Döner:</b> Erwische den seltenen Döner für 10 Sekunden unendlichen Durst.<br><br>
             • <b>Verschütten:</b> Kollidierst du mit einem Bier ohne vorher dein Bierloch aufzumachen, verschüttest du es. Bei 100 verschütteten Bieren verlierst du!
         </div>
         <button id="btn-back" class="menu-btn">ZURÜCK</button>
@@ -123,7 +122,7 @@
         <button id="btn-restart" class="menu-btn" style="background:#2ecc71;">HAUPTMENÜ</button>
     </div>
 
-    <button id="drink-btn">TRINKEN</button>
+    <button id="drink-btn">SAUF</button>
 </div>
 
 <script>
@@ -356,17 +355,23 @@ const touchControl = {
         touchControl.active = false;
     }, { passive: false });
 
-    // --- DEN NEUEN ROTEN BUZZER AKTIVIEREN ---
-    // Wir hängen die trinken-Aktion direkt an das HTML-Element an
+    // --- DEN NEUEN ROTEN BUZZER AKTIVIEREN (MIT DOUBLE-TRIGGER-SCHUTZ) ---
     const HTMLDrinkBtn = document.getElementById("drink-btn");
     if (HTMLDrinkBtn) {
-        // 'touchstart' reagiert auf dem Handy sofort ohne die typische 300ms Verzögerung von 'click'
         HTMLDrinkBtn.addEventListener('touchstart', e => {
-            e.preventDefault(); // Verhindert, dass das Canvas im Hintergrund zuckt
+            // Verhindert das Standard-Verhalten und das "Nachfeuern" von Klicks
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            
             AudioSynth.init();
-            tryDrink();
+            
+            // Nur trinken, wenn das Spiel läuft und man genug Durst hat
+            if (gameState === "PLAYING" && (player.durst >= 15 || player.doenerPowerActive)) {
+                tryDrink();
+            }
         }, { passive: false });
     }
+
 
 
     function tryDrink() {
