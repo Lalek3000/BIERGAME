@@ -458,8 +458,8 @@ const touchControl = {
     function saveFirebaseHighscore() {
         if (highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score) {
             setTimeout(() => {
-                let name = prompt("Du hast die TOP 5 geknackt! Trage deinen Namen ein:", "SAUFBOLZEN");
-                if (!name) name = "ANONYM";
+                let name = prompt("Du hast die TOP 5 geknackt! Trage deinen Namen ein (12 Zeichen):", "ICKE");
+                if (!name) name = "Mario";
                 let cleanName = name.toUpperCase().slice(0, 12);
                 if (firebaseActive && db) {
                     db.collection("highscores").add({
