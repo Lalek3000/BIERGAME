@@ -500,33 +500,40 @@ const touchControl = {
         scrGameOver.style.display = "none"; scrMenu.style.display = "flex"; loadHighscores();
     });
 
-    // --- BUZZER: DETEKTION FÜR GEDRÜCKTHALTEN (HOLD-TO-DRINK) ---
-    btnDrink.addEventListener("touchstart", (e) => { 
-        e.preventDefault(); 
-        AudioSynth.init(); 
-        
-        // Trinken starten, wenn das Spiel läuft und noch Durst da ist
-        if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
-            player.isDrinking = true; 
-        }
-    }, { passive: false });
+     // --- BUZZER: SAUBERE RECHTE-DAUMEN-ERKENNUNG ---
+    if (typeof btnDrink !== 'undefined' && btnDrink) {
+        btnDrink.addEventListener("touchstart", (e) => { 
+            e.preventDefault(); 
+            AudioSynth.init(); 
+            if (gameState === "PLAYING") {
+                player.isHoldingDrink = true; // Taste wird gehalten!
+            }
+        }, { passive: false });
 
-    btnDrink.addEventListener("touchend", (e) => { 
-        e.preventDefault(); 
-        // Sobald der Finger angehoben wird, stoppt das Trinken sofort
-        player.isDrinking = false; 
-    }, { passive: false });
+        btnDrink.addEventListener("touchend", (e) => { 
+            e.preventDefault(); 
+            player.isHoldingDrink = false; // Taste losgelassen!
+        }, { passive: false });
 
-    // Sicherheits-Backup für den Desktop-Mausklick (falls du im Browser testest)
-    btnDrink.addEventListener("mousedown", (e) => { 
-        e.preventDefault(); 
-        if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
-            player.isDrinking = true; 
+        // Maus-Backup für den PC-Browser
+        btnDrink.addEventListener("mousedown", (e) => { 
+            e.preventDefault(); 
+            if (gameState === "PLAYING") player.isHoldingDrink = true;
+        });
+    }
+
+    // Leertaste für den PC ebenfalls anpassen
+    window.addEventListener('keydown', e => {
+        if ((e.key === ' ' || e.key === 'Spacebar') && gameState === "PLAYING") {
+            player.isHoldingDrink = true;
         }
     });
-    window.addEventListener("mouseup", () => { 
-        player.isDrinking = false; 
+    window.addEventListener('keyup', e => { 
+        if (e.key === ' ' || e.key === 'Spacebar') {
+            player.isHoldingDrink = false;
+        }
     });
+
 
 
     function loadHighscores() {
@@ -751,6 +758,43 @@ const touchControl = {
             AudioSynth.startUrin();
             spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
+
+        if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
+            player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0; 
+            AudioSynth.startUrin();
+            spawnFeedback(47, 702, 'urine'); 
+        } else { AudioSynth.stopUrin(); }
+
+        // =========================================================================
+        // >>> HIER REINKOPIEREN <<<
+        // --- FORCE-TRINKEN IN DER UPDATE-SCHLEIFE (KORRIGIERT) ---
+        if (player.isHoldingDrink && gameState === "PLAYING") {
+            if (player.durst > 0 || player.doenerPowerActive) {
+                player.isDrinking = true;
+                player.drinkTimer = 2; 
+                
+                if (!player.doenerPowerActive) {
+                    player.durst -= 40 * (dt / 1000);
+                    if (player.durst < 0) player.durst = 0;
+                }
+                
+                if (!window.drinkAccumulator) window.drinkAccumulator = 0;
+                window.drinkAccumulator += dt;
+                
+                if (window.drinkAccumulator >= 400) { 
+                    player.biereGesoffen += 1;
+                    window.drinkAccumulator = 0;
+                    AudioSynth.playDrink(); 
+                }
+            } else {
+                player.isDrinking = false;
+                player.drinkTimer = 0;
+            }
+        } else if (!player.isHoldingDrink && player.isDrinking) {
+            player.isDrinking = false;
+            player.drinkTimer = 0;
+        }
+        // =========================================================================
         
         // --- ZENTRALE BUZZER-STEUERUNG (MUSS IN DER UPDATE-SCHLEIFE STEHEN) ---
         const buzzerElement = document.getElementById("drink-btn");
