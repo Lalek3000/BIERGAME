@@ -6,8 +6,20 @@
     <title>MÄDCHENNAME MADEMANN - DIE NACHT DER 1000 BIERE</title>
     <style>
         body { margin: 0; padding: 0; background: #111; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; -webkit-user-select: none; }
-        #game-container { position: relative; width: 540px; height: 960px; max-width: 100%; max-height: 100%; aspect-ratio: 9/16; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
-        canvas { background: #1a1a1a; width: 100%; height: 100%; display: block; }
+               #game-container { 
+            position: relative; 
+            width: 540px; 
+            height: 960px; 
+            max-width: 100%; 
+            max-height: 100%; 
+            aspect-ratio: 9/16; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.8); 
+            
+            /* NEU: Aktiviert die automatische Zentrierung für innenliegende Elemente */
+            display: flex;
+            justify-content: center;
+        }
+
         .ui-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(17,17,17,0.95); box-sizing: border-box; padding: 20px; z-index: 20; }
         .menu-btn { width: 200px; height: 60px; margin: 15px; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         #btn-start { background: #2ecc71; }
@@ -17,8 +29,7 @@
         #drink-btn { 
             position: absolute; 
             bottom: 40px; 
-            left: 50%; 
-            transform: translateX(-50%); 
+            /* Kein left: 50% und kein transform mehr! Flexbox zentriert das jetzt automatisch */
             width: 110px; 
             height: 110px; 
             border-radius: 50%; 
@@ -29,49 +40,38 @@
             font-weight: bold; 
             text-transform: uppercase;
             cursor: pointer; 
-            display: none; 
+            display: none; /* Standardmäßig im Menü unsichtbar */
             align-items: center; 
             justify-content: center; 
             box-shadow: 0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5);
             z-index: 30; 
             -webkit-tap-highlight-color: transparent; 
-            transition: all 0.05s ease;
+            transition: background 0.05s ease, box-shadow 0.05s ease;
         }
         #drink-btn:active { 
             background: #c0392b; 
             box-shadow: 0 2px 0 #962d22, 0 4px 10px rgba(0,0,0,0.5);
-            transform: translate(-50%, 6px);
+            /* Zum Runterdrücken nutzen wir jetzt margin-top statt transform */
+            margin-top: 6px;
         }
 
-        #score-list { margin-top: 20px; width: 250px; text-align: center; }
-        .score-item { padding: 5px; border-bottom: 1px solid #333; font-size: 14px; }
-        
-        .char-container { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
-        .char-box { width: 90px; padding: 5px; background: #222; border: 2px solid #444; border-radius: 5px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold; }
-        .char-box.selected { border-color: #f1c40f; background: #333; }
-        .char-canvas { background: #2a2a2a; border-radius: 3px; display: block; margin: 5px auto; }
-        #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; margin: 20px auto 0 auto; }
-                /* --- NEON-GRÜNES PULSIEREN FÜR DEN DÖNER-MODE --- */
-         /* Wenn diese Klasse aktiv ist, schaltet der Button komplett auf Döner-Modus um */
+        /* Wenn diese Klasse im Döner-Modus aktiv ist, pulsiert der Button fehlerfrei */
         #drink-btn.doener-active {
             background: #2ecc71 !important;
             border-color: #2ecc71 !important;
             animation: doenerGlow 0.8s infinite ease-in-out !important;
         }
 
-        /* Die Pulsier-Animation */
+        /* Die neue Pulsier-Animation (komplett ohne fehleranfälliges transform!) */
         @keyframes doenerGlow {
             0% {
                 box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
-                transform: translateX(-50%) translateY(0);
             }
             50% {
                 box-shadow: 0 8px 0 #27ae60, 0 15px 35px rgba(46, 204, 113, 1), 0 0 25px rgba(46, 204, 113, 0.8);
-                transform: translateX(-50%) translateY(-4px); /* Der Button hebt sich leicht an */
             }
             100% {
                 box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
-                transform: translateX(-50%) translateY(0);
             }
         }
 
