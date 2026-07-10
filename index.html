@@ -339,8 +339,8 @@ const touchControl = {
         };
     }
 
-    // --- MULTI-TOUCH ENTKOPPELTE STEUERUNG ---
-    let movementTouchId = null; // Speichert, welcher Finger gerade steuert
+    // --- MULTI-TOUCH ENTKOPPELTE STEUERUNG (KORRIGIERT) ---
+    let movementTouchId = null; 
 
     function getTouchById(touchEvent, id) {
         for (let i = 0; i < touchEvent.touches.length; i++) {
@@ -350,14 +350,12 @@ const touchControl = {
     }
 
     canvas.addEventListener('touchstart', e => {
-        // WICHTIG: Kein pauschales e.preventDefault() mehr am Anfang, 
-        // damit andere HTML-Elemente (wie der Buzzer) parallel atmen können!
         if (gameState !== "PLAYING") return;
 
-        // Wenn noch kein Finger für die Bewegung registriert ist, nimm den ersten neuen Touch
-        if (movementTouchId === null) {
+        if (movementTouchId === null && e.changedTouches.length > 0) {
             AudioSynth.init();
-            let touch = e.changedTouches[0];
+            // Nimm den ersten Finger aus der Liste der neuen Berührungen
+            let touch = e.changedTouches[0]; 
             movementTouchId = touch.identifier;
 
             let rect = canvas.getBoundingClientRect();
@@ -373,15 +371,14 @@ const touchControl = {
             touchControl.playerStartX = player.x;
             touchControl.playerStartY = player.y;
         }
-    }, { passive: true }); // passive: true erlaubt parallele Events auf anderen Elementen
+    }, { passive: true });
 
     canvas.addEventListener('touchmove', e => {
         if (gameState !== "PLAYING" || !touchControl.active || movementTouchId === null) return;
 
-        // Finde genau den Finger wieder, der die Bewegung gestartet hat
         let touch = getTouchById(e, movementTouchId);
         if (touch) {
-            e.preventDefault(); // Verhindert das Scrollen der Website beim Wischen
+            e.preventDefault(); 
             let rect = canvas.getBoundingClientRect();
             let scaleX = canvas.width / rect.width;
             let scaleY = canvas.height / rect.height;
@@ -393,16 +390,16 @@ const touchControl = {
 
     canvas.addEventListener('touchend', e => {
         if (movementTouchId !== null) {
-            // Prüfe, ob der Bewegungs-Finger angehoben wurde
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === movementTouchId) {
                     touchControl.active = false;
-                    movementTouchId = null; // Platz frei für den nächsten Wisch-Befehl
+                    movementTouchId = null; 
                     break;
                 }
             }
         }
     }, { passive: true });
+
 
 
         // --- ZENTRALE BUZZER-STEUERUNG (MIT DÖNER-PULSIEREN) ---
