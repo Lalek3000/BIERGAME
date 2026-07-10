@@ -586,7 +586,7 @@ const touchControl = {
     }
     function updateGame(dt) {
         let ticks = dt / FRAME_DURATION;
-        
+     
         // Spieler-Wackeln dekrementieren
         if (player.wobbleTimer > 0) player.wobbleTimer -= ticks;
 
@@ -626,10 +626,11 @@ const touchControl = {
         
         if (player.doenerPowerActive) {
             player.durst = 100;
-            player.blase = 80;
+            player.maxBlase = 10000;
             if ((player.doenerTimer -= ticks) <= 0) player.doenerPowerActive = false;
         } else if (player.durst < 100) {
             player.durst += 0.15 * ticks;
+            player.maxBlase = 15; 
         }
         
         if (player.isDrinking && (player.drinkTimer -= ticks) <= 0) player.isDrinking = false;
