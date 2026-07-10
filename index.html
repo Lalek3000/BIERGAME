@@ -52,16 +52,26 @@
         .char-canvas { background: #2a2a2a; border-radius: 3px; display: block; margin: 5px auto; }
         #btn-letsgo { background: #e67e22; width: 220px; height: 60px; font-size: 20px; font-weight: bold; display: none; margin: 20px auto 0 auto; }
                 /* --- NEON-GRÜNES PULSIEREN FÜR DEN DÖNER-MODE --- */
+         /* Wenn diese Klasse aktiv ist, schaltet der Button komplett auf Döner-Modus um */
+        #drink-btn.doener-active {
+            background: #2ecc71 !important;
+            border-color: #2ecc71 !important;
+            animation: doenerGlow 0.8s infinite ease-in-out !important;
+        }
+
+        /* Die Pulsier-Animation */
         @keyframes doenerGlow {
             0% {
                 box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
+                transform: translateX(-50%) translateY(0);
             }
             50% {
                 box-shadow: 0 8px 0 #27ae60, 0 15px 35px rgba(46, 204, 113, 1), 0 0 25px rgba(46, 204, 113, 0.8);
-                transform: translate(-50%, -4px); /* Der Button "hebt" sich visuell leicht ab */
+                transform: translateX(-50%) translateY(-4px); /* Der Button hebt sich leicht an */
             }
             100% {
                 box-shadow: 0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6);
+                transform: translateX(-50%) translateY(0);
             }
         }
 
@@ -115,7 +125,7 @@
         <div id="rules-text">
             • <b>Ziel:</b> Du musst TAUSEND! BIERE! SAUFEN! <br><br>
             • <b>Steuerung:</b> WASD / Pfeiltasten oder Drag auf dem Touchpad. **je mehr Bier drin sind, desto schwerer wird die Steuerung (wie im echten Leben)**<br><br>
-            • <b>Saufen:</b> LEERTASTE drücken oder unten TRINKEN buzzern **Ist die Blase voll oder der Durst leer, kannst du nicht trinken!**<br><br>
+            • <b>Saufen:</b> LEERTASTE drücken oder unten SAUF buzzern **Ist die Blase voll oder der Durst leer, kannst du nicht trinken!**<br><br>
             • <b>Durst:</b> Lädt sich über die Zeit oder durch Snacks von der Bar auf. (Friss den secret Döner für 10 Sekunden unendlich Durst und Blasenkapazität!) <br><br>
             • <b>Blase:</b> Jedes Getränk füllt die Blase. Pass auf, dass deine Blase nie zu voll wird und besuch vorher lieber Ed auf dem Klo!<br><br>
             • <b>Verschütten:</b> Kollidierst du mit einem Bier ohne vorher dein Bierloch aufzumachen, verschüttest du es. Bei 100 verschütteten Bieren verlierst du!
@@ -401,62 +411,6 @@ const touchControl = {
     }, { passive: true });
 
 
-
-        // --- ZENTRALE BUZZER-STEUERUNG (MIT DÖNER-PULSIEREN) ---
-        const buzzerElement = document.getElementById("drink-btn");
-        if (buzzerElement) {
-            
-            if (gameState === "PLAYING") {
-                if (buzzerElement.style.display !== "flex") {
-                    buzzerElement.style.display = "flex";
-                }
-                
-                if (player.durst >= 15 || player.doenerPowerActive) {
-                    buzzerElement.style.opacity = "1";
-                    buzzerElement.style.filter = "none";
-                    buzzerElement.style.pointerEvents = "auto";
-                    
-                    if (player.doenerPowerActive) {
-                        buzzerElement.style.background = "#2ecc71";
-                        buzzerElement.style.borderColor = "#2ecc71";
-                        buzzerElement.innerText = "DÖNER!";
-                        
-                        // NEU: Aktiviere die Pulsier-Animation, falls sie noch nicht läuft
-                        if (buzzerElement.style.animation !== "doenerGlow 0.8s infinite ease-in-out") {
-                            buzzerElement.style.animation = "doenerGlow 0.8s infinite ease-in-out";
-                        }
-                    } else {
-                        buzzerElement.style.background = "#e74c3c";
-                        buzzerElement.style.borderColor = "#fff";
-                        buzzerElement.style.boxShadow = "0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5)";
-                        buzzerElement.innerText = "TRINKEN";
-                        
-                        // NEU: Schalte die Animation im Normalmodus wieder aus
-                        if (buzzerElement.style.animation !== "none" && buzzerElement.style.animation !== "") {
-                            buzzerElement.style.animation = "none";
-                        }
-                    }
-                    
-                } else {
-                    buzzerElement.style.opacity = "0.2";
-                    buzzerElement.style.filter = "grayscale(100%) brightness(70%)";
-                    buzzerElement.style.pointerEvents = "none";
-                    
-                    // Sicherheitshalber auch beim Ausgrauen die Animation stoppen
-                    if (buzzerElement.style.animation !== "none" && buzzerElement.style.animation !== "") {
-                        buzzerElement.style.animation = "none";
-                    }
-                }
-                
-            } else {
-                if (buzzerElement.style.display !== "none") {
-                    buzzerElement.style.display = "none";
-                }
-            }
-        }
-
-
-
     function tryDrink() {
         if (gameState !== "PLAYING") return;
         if (player.durst >= 15) {
@@ -738,40 +692,44 @@ const touchControl = {
             spawnFeedback(47, 702, 'urine'); 
         } else { AudioSynth.stopUrin(); }
         
-        // --- ZENTRALE BUZZER-STEUERUNG (NUN MIT NEON-GRÜNEM DÖNER-MODE) ---
+        // --- ZENTRALE BUZZER-STEUERUNG (MUSS IN DER UPDATE-SCHLEIFE STEHEN) ---
         const buzzerElement = document.getElementById("drink-btn");
         if (buzzerElement) {
             
             if (gameState === "PLAYING") {
+                // Button im Spiel anzeigen
                 if (buzzerElement.style.display !== "flex") {
                     buzzerElement.style.display = "flex";
                 }
                 
+                // Prüfen, ob getrunken werden kann
                 if (player.durst >= 15 || player.doenerPowerActive) {
                     buzzerElement.style.opacity = "1";
                     buzzerElement.style.filter = "none";
                     buzzerElement.style.pointerEvents = "auto";
                     
-                    // NEU: Visueller Döner-Modus für den Buzzer
+                    // Döner-Modus über CSS-Klasse ein- oder ausschalten
                     if (player.doenerPowerActive) {
-                        buzzerElement.style.background = "#2ecc71"; // Neon-Grün
-                        buzzerElement.style.borderColor = "#2ecc71";
-                        buzzerElement.style.boxShadow = "0 8px 0 #27ae60, 0 10px 20px rgba(46, 204, 113, 0.6)";
-                        buzzerElement.innerText = "DÖNER!"; // Ändert den Text auf dem Button optional
+                        buzzerElement.classList.add("doener-active");
+                        buzzerElement.innerText = "DÖNER!";
                     } else {
-                        buzzerElement.style.background = "#e74c3c"; // Normales Rot
+                        buzzerElement.classList.remove("doener-active");
+                        buzzerElement.innerText = "TRINKEN";
+                        // Standard-Styles wiederherstellen, falls sie verloren gingen
+                        buzzerElement.style.background = "#e74c3c";
                         buzzerElement.style.borderColor = "#fff";
                         buzzerElement.style.boxShadow = "0 8px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.5)";
-                        buzzerElement.innerText = "TRINKEN"; // Zurück zum Standard-Text
                     }
-                    
                 } else {
+                    // Ausgrauen, wenn kein Durst vorhanden ist
+                    buzzerElement.classList.remove("doener-active");
                     buzzerElement.style.opacity = "0.2";
                     buzzerElement.style.filter = "grayscale(100%) brightness(70%)";
                     buzzerElement.style.pointerEvents = "none";
                 }
                 
             } else {
+                // Im Menü oder GameOver komplett verstecken
                 if (buzzerElement.style.display !== "none") {
                     buzzerElement.style.display = "none";
                 }
