@@ -432,12 +432,9 @@ const touchControl = {
                 
                 // Durst kontinuierlich reduzieren (ca. 45 Durst pro Sekunde)
                 if (!player.doenerPowerActive) {
-                    player.durst -= 45 * (dt / 1000);
+                    player.durst -= 25 * (dt / 1000);
                     if (player.durst < 0) player.durst = 0;
                 }
-                
-                // Blase kontinuierlich füllen (außer im Döner-Mode dank deines 10000er-Limits!)
-                player.blase += 5 * (dt / 1000); 
 
                 // Erhöhe die getrunkenen Biere alle paar Frames (z.B. alle 0.3 Sekunden ein Bier)
                 player.drinkTimer += ticks;
