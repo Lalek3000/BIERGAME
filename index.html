@@ -500,27 +500,35 @@ const touchControl = {
         scrGameOver.style.display = "none"; scrMenu.style.display = "flex"; loadHighscores();
     });
 
-     // --- BUZZER: SAUBERE RECHTE-DAUMEN-ERKENNUNG ---
+    // --- BUZZER: RESPONSIVE GEDRÜCKTHALTEN (MIT MAUS-FIX) ---
     if (typeof btnDrink !== 'undefined' && btnDrink) {
         btnDrink.addEventListener("touchstart", (e) => { 
             e.preventDefault(); 
             AudioSynth.init(); 
-            if (gameState === "PLAYING") {
-                player.isHoldingDrink = true; // Taste wird gehalten!
+            if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
+                player.isHoldingDrink = true; 
             }
         }, { passive: false });
 
         btnDrink.addEventListener("touchend", (e) => { 
             e.preventDefault(); 
-            player.isHoldingDrink = false; // Taste losgelassen!
+            player.isHoldingDrink = false; 
         }, { passive: false });
 
-        // Maus-Backup für den PC-Browser
+        // PC-Maus Support
         btnDrink.addEventListener("mousedown", (e) => { 
             e.preventDefault(); 
-            if (gameState === "PLAYING") player.isHoldingDrink = true;
+            if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
+                player.isHoldingDrink = true;
+            }
         });
     }
+
+    // ABSOLUTER DESKTOP-FIX: Sobald IRGENDWO auf dem Bildschirm die Maus losgelassen wird, stoppt das Trinken!
+    window.addEventListener("mouseup", () => { 
+        player.isHoldingDrink = false; 
+    });
+
 
     // Leertaste für den PC ebenfalls anpassen
     window.addEventListener('keydown', e => {
@@ -752,18 +760,49 @@ const touchControl = {
         if (player.vx > 10) player.facing = 'right';
         if (player.vx < -10) player.facing = 'left';
 
-        // Urinieren-Logik (unverändert)
-        if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
-            player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0; 
+         // --- BLASEN-ENTLEERUNG (NUN ZEITGESTEUERT & SCHONENDER) ---
+        if (player.x < 130 && player.y > 620 && player.y < 780 && player.blase > 0) {
+            // Rechnet jetzt mit echter Zeit (dt / 1000). 
+            // Ändere die 2.0 (höher = schneller leeren, niedriger = langsamer leeren)
+            player.blase -= 2.0 * (dt / 1000); 
+            if (player.blase < 0) player.blase = 0; 
             AudioSynth.startUrin();
             spawnFeedback(47, 702, 'urine'); 
-        } else { AudioSynth.stopUrin(); }
+        } else { 
+            AudioSynth.stopUrin(); 
+        }
 
-        if (player.x < 110 && player.y > 620 && player.y < 780 && player.blase > 0) {
-            player.blase -= 0.3 * ticks; if (player.blase < 0) player.blase = 0; 
-            AudioSynth.startUrin();
-            spawnFeedback(47, 702, 'urine'); 
-        } else { AudioSynth.stopUrin(); }
+        // --- FORCE-TRINKEN IN DER UPDATE-SCHLEIFE (MIT DURST-0-STOPP) ---
+        if (player.isHoldingDrink && gameState === "PLAYING") {
+            // Härterer Check: Sobald Durst 0 erreicht (und kein Döner aktiv ist), wird das Trinken blockiert
+            if (player.durst > 0 || player.doenerPowerActive) {
+                player.isDrinking = true;
+                player.drinkTimer = 2; 
+                
+                if (!player.doenerPowerActive) {
+                    player.durst -= 40 * (dt / 1000);
+                    if (player.durst < 0) player.durst = 0;
+                }
+                
+                if (!window.drinkAccumulator) window.drinkAccumulator = 0;
+                window.drinkAccumulator += dt;
+                
+                if (window.drinkAccumulator >= 400) { 
+                    player.biereGesoffen += 1;
+                    window.drinkAccumulator = 0;
+                    AudioSynth.playDrink(); 
+                }
+            } else {
+                // Sofortiger Abbruch, wenn Durst leer ist!
+                player.isDrinking = false;
+                player.drinkTimer = 0;
+                player.isHoldingDrink = false; 
+            }
+        } else if (!player.isHoldingDrink && player.isDrinking) {
+            player.isDrinking = false;
+            player.drinkTimer = 0;
+        }
+
 
         // =========================================================================
         // >>> HIER REINKOPIEREN <<<
