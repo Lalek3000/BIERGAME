@@ -329,12 +329,26 @@ const touchControl = {
         stopUrin() { if (this.urinInterval) { clearInterval(this.urinInterval); this.urinInterval = null; } }
     };
 
-    // --- 3. INPUT DETECTION ---
+    // --- TASTATUR: DETEKTION FÜR GEDRÜCKTHALTEN ---
     window.addEventListener('keydown', e => {
-        AudioSynth.init(); keys[e.key] = true;
-        if (e.key === ' ' || e.key === 'Spacebar') tryDrink();
+        AudioSynth.init(); 
+        keys[e.key] = true;
+        
+        // Wenn die Leertaste gedrückt wird, starten wir das Trinken
+        if ((e.key === ' ' || e.key === 'Spacebar') && gameState === "PLAYING") {
+            player.isDrinking = true;
+        }
     });
-    window.addEventListener('keyup', e => { keys[e.key] = false; });
+    
+    window.addEventListener('keyup', e => { 
+        keys[e.key] = false; 
+        
+        // Wenn die Leertaste losgelassen wird, stoppen wir das Trinken
+        if (e.key === ' ' || e.key === 'Spacebar') {
+            player.isDrinking = false;
+        }
+    });
+
 
     // --- NEUE INTERAKTIONS-LOGIK MIT GUMMIBAND-EFFEKT ---
     
@@ -411,14 +425,33 @@ const touchControl = {
     }, { passive: true });
 
 
-    function tryDrink() {
-        if (gameState !== "PLAYING") return;
-        if (player.durst >= 15) {
-            player.isDrinking = true;
-            player.drinkTimer = 60; 
-            if (!player.doenerPowerActive) player.durst -= 15;
+        // --- KONTINUIERLICHES TRINKEN IN DER UPDATE-SCHLEIFE ---
+        if (player.isDrinking && gameState === "PLAYING") {
+            // Prüfen, ob noch Durst vorhanden ist (oder Döner-Power läuft)
+            if (player.durst > 0 || player.doenerPowerActive) {
+                
+                // Durst kontinuierlich reduzieren (ca. 45 Durst pro Sekunde)
+                if (!player.doenerPowerActive) {
+                    player.durst -= 45 * (dt / 1000);
+                    if (player.durst < 0) player.durst = 0;
+                }
+                
+                // Blase kontinuierlich füllen (außer im Döner-Mode dank deines 10000er-Limits!)
+                player.blase += 5 * (dt / 1000); 
+
+                // Erhöhe die getrunkenen Biere alle paar Frames (z.B. alle 0.3 Sekunden ein Bier)
+                player.drinkTimer += ticks;
+                if (player.drinkTimer >= 20) { 
+                    player.biereGesoffen += 1;
+                    player.drinkTimer = 0;
+                    AudioSynth.playDrink(); // Spielt den Trink-Sound rhythmisch ab
+                }
+            } else {
+                // Wenn der Durst auf 0 ist, hört die Figur automatisch auf
+                player.isDrinking = false;
+            }
         }
-    }
+
     // --- 4. SEITEN-INTERAKTIONEN & HIGHCORES ---
     const scrMenu = document.getElementById("menu-screen");
     const scrRules = document.getElementById("rules-screen");
@@ -467,8 +500,34 @@ const touchControl = {
         scrGameOver.style.display = "none"; scrMenu.style.display = "flex"; loadHighscores();
     });
 
-    btnDrink.addEventListener("touchstart", (e) => { e.preventDefault(); AudioSynth.init(); tryDrink(); }, { passive: false });
-    btnDrink.addEventListener("mousedown", (e) => { e.preventDefault(); tryDrink(); });
+    // --- BUZZER: DETEKTION FÜR GEDRÜCKTHALTEN (HOLD-TO-DRINK) ---
+    btnDrink.addEventListener("touchstart", (e) => { 
+        e.preventDefault(); 
+        AudioSynth.init(); 
+        
+        // Trinken starten, wenn das Spiel läuft und noch Durst da ist
+        if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
+            player.isDrinking = true; 
+        }
+    }, { passive: false });
+
+    btnDrink.addEventListener("touchend", (e) => { 
+        e.preventDefault(); 
+        // Sobald der Finger angehoben wird, stoppt das Trinken sofort
+        player.isDrinking = false; 
+    }, { passive: false });
+
+    // Sicherheits-Backup für den Desktop-Mausklick (falls du im Browser testest)
+    btnDrink.addEventListener("mousedown", (e) => { 
+        e.preventDefault(); 
+        if (gameState === "PLAYING" && (player.durst > 0 || player.doenerPowerActive)) {
+            player.isDrinking = true; 
+        }
+    });
+    window.addEventListener("mouseup", () => { 
+        player.isDrinking = false; 
+    });
+
 
     function loadHighscores() {
         const container = document.getElementById("highscores-container");
