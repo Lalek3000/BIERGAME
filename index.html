@@ -758,7 +758,7 @@ const touchControl = {
         if (player.vx < -10) player.facing = 'left';
 
          // --- BLASEN-ENTLEERUNG (NUN ZEITGESTEUERT & SCHONENDER) ---
-        if (player.x < 150 && player.y > 550 && player.y < 780 && player.blase > 0) {
+        if (player.x < 130 && player.y > 550 && player.y < 780 && player.blase > 0) {
             // Rechnet jetzt mit echter Zeit (dt / 1000). 
             // Ändere die 2.0 (höher = schneller leeren, niedriger = langsamer leeren)
             player.blase -= 5.0 * (dt / 1000); 
@@ -777,7 +777,7 @@ const touchControl = {
                 player.drinkTimer = 2; 
                 
                 if (!player.doenerPowerActive) {
-                    player.durst -= 40 * (dt / 1000);
+                    player.durst -= 25 * (dt / 1000);
                     if (player.durst < 0) player.durst = 0;
                 }
                 
@@ -810,7 +810,7 @@ const touchControl = {
                 player.drinkTimer = 2; 
                 
                 if (!player.doenerPowerActive) {
-                    player.durst -= 40 * (dt / 1000);
+                    player.durst -= 25 * (dt / 1000);
                     if (player.durst < 0) player.durst = 0;
                 }
                 
