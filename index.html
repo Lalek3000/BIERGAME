@@ -758,7 +758,7 @@ const touchControl = {
         if (player.vx < -10) player.facing = 'left';
 
          // --- BLASEN-ENTLEERUNG (NUN ZEITGESTEUERT & SCHONENDER) ---
-        if (player.x < 210 && player.y > 620 && player.y < 780 && player.blase > 0) {
+        if (player.x < 150 && player.y > 550 && player.y < 780 && player.blase > 0) {
             // Rechnet jetzt mit echter Zeit (dt / 1000). 
             // Ändere die 2.0 (höher = schneller leeren, niedriger = langsamer leeren)
             player.blase -= 5.0 * (dt / 1000); 
