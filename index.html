@@ -76,9 +76,6 @@
         }
 
     </style>
-    <!-- Stabile, klassische Firebase-Bibliotheken (Verhindert jsDelivr Timeouts) -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -235,27 +232,6 @@ const touchControl = {
     characters.alex.normal.src = 'alex.png';
     characters.alex.sauft.src = 'alexsauft.png';
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyCtgeDbmieZhR58_IriF_uIm3DQuOGSc-A",
-        authDomain: "://firebaseapp.com",
-        databaseURL: "https://firebaseio.com",
-        projectId: "biere-handygame",
-        storageBucket: "biere-handygame.firebasestorage.app",
-        messagingSenderId: "706208794774",
-        appId: "1:706208794774:web:9d7a39ee4701ab01e71ab7"
-    };
-
-    let db = null, firebaseActive = false;
-    if (typeof firebase !== 'undefined') {
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            firebaseActive = true;
-            console.log("Firebase via Compat-SDK erfolgreich initialisiert.");
-        } catch (e) {
-            console.log("Firebase im Offline-Modus gestartet.");
-        }
-    }
     // --- 2. SOUND-SYNTHESE (WEB AUDIO API) ---
     const AudioSynth = {
         ctx: null, urinInterval: null, urinStep: 0,
@@ -540,20 +516,20 @@ const touchControl = {
     });
 
 
+    const HIGHSCORE_API = "/api/beergame-highscore";
 
     function loadHighscores() {
         const container = document.getElementById("highscores-container");
         if (!container) return;
-        if (firebaseActive && db) {
-            db.collection("highscores").orderBy("score", "desc").limit(5).get()
-            .then(snapshot => {
-                highscores = []; container.innerHTML = "";
-                snapshot.forEach(doc => { highscores.push(doc.data()); });
+        fetch(`${HIGHSCORE_API}?limit=5`)
+            .then(res => res.json())
+            .then(data => {
+                highscores = data.scores || [];
+                container.innerHTML = "";
                 if (highscores.length === 0) { container.innerHTML = "<div class='score-item'>Noch keine Einträge</div>"; }
                 else { highscores.forEach((hs, idx) => { container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE</div>`; }); }
             })
-            .catch(() => { loadLocalHighscoresFallback(container); });
-        } else { loadLocalHighscoresFallback(container); }
+            .catch(() => loadLocalHighscoresFallback(container));
     }
 
     function loadLocalHighscoresFallback(container) {
@@ -563,19 +539,19 @@ const touchControl = {
         else { highscores.forEach((hs, idx) => { container.innerHTML += `<div class='score-item'>${idx + 1}. ${hs.name} - ${hs.score} BIERE (Lokal)</div>`; }); }
     }
 
-    function saveFirebaseHighscore() {
+    function saveHighscore() {
         if (highscores.length < 5 || player.biereGesoffen > highscores[highscores.length - 1].score) {
             setTimeout(() => {
                 let name = prompt("Du hast die TOP 5 geknackt! Trage deinen Namen ein (12 Zeichen):", "ICKE");
                 if (!name) name = "Mario";
                 let cleanName = name.toUpperCase().slice(0, 12);
-                if (firebaseActive && db) {
-                    db.collection("highscores").add({
-                        name: cleanName, score: player.biereGesoffen, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    })
-                    .then(() => { loadHighscores(); })
-                    .catch(() => { saveLocalScore(cleanName); });
-                } else { saveLocalScore(cleanName); }
+                fetch(HIGHSCORE_API, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: cleanName, score: player.biereGesoffen })
+                })
+                    .then(() => loadHighscores())
+                    .catch(() => saveLocalScore(cleanName));
             }, 100);
         }
     }
@@ -960,7 +936,7 @@ const touchControl = {
         audio.bgBierloch.pause(); audio.bgGito.pause(); audio.bgMenu.currentTime = 0; safePlay(audio.bgMenu);
         document.getElementById("gameover-stats").innerText = `Du hast ${player.biereGesoffen} Biere gesoffen!`;
         document.getElementById("code-box").style.display = (player.biereGesoffen >= 1000) ? "block" : "none";
-        scrGameOver.style.display = "flex"; saveFirebaseHighscore();
+        scrGameOver.style.display = "flex"; saveHighscore();
         if (document.getElementById("drink-btn")) {
     document.getElementById("drink-btn").style.display = "none";
 }
